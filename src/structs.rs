@@ -1,6 +1,7 @@
 use std::fmt;
 
 /// A rather simple struct implementing an complicated initialization method and the `Display trait`
+#[derive(PartialEq)]
 pub struct HttpVersion {
 	pub major: usize,
 	pub minor: usize
