@@ -52,6 +52,26 @@ fn handle_client(mut stream: TcpStream) {
 	println!("Method: {}\nPath: {}\nHTTP version: {}", method, target, http_version);
 
 
+	// Create a variable for storing HTTP headers
+	let mut headers: Vec<HttpHeader> = Vec::new();
+
+	// Obtain available HTTP headers
+	loop {
+		let line = read_line(&mut stream);
+
+		if line == String::from("") {
+			break;
+		}
+
+		let Some(header) = HttpHeader::new(&line) else {
+			eprintln!("Invalid HTTP header syntax detected. Dropping connection...");
+			terminate_connection(stream);
+			return;
+		};
+
+		headers.push(header);
+	}
+
 	// Once done, terminate the connection
 	terminate_connection(stream);
 }

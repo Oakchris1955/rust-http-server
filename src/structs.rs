@@ -45,3 +45,28 @@ impl fmt::Display for HttpVersion {
         write!(f, "HTTP/{}.{}", self.major, self.minor)
     }
 }
+
+/// A rather generalized HTTP header struct
+pub struct HttpHeader {
+	pub name: String,
+	pub value: String
+}
+
+impl HttpHeader {
+	pub fn new(header: &str) -> Option<Self> {
+		let Some((name, value)) = header.split_once(": ") else {
+			return None;
+		};
+
+		Some(Self {
+			name: name.to_string(),
+			value: value.to_string()
+		})
+	}
+}
+
+impl fmt::Display for HttpHeader {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}: {}", self.name, self.value)
+    }
+}
