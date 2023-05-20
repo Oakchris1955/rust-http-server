@@ -1,3 +1,4 @@
+use std::io::Write;
 use std::net::{TcpListener, TcpStream};
 use std::process::exit;
 
@@ -71,6 +72,19 @@ fn handle_client(mut stream: TcpStream) {
 
 		headers.push(header);
 	}
+
+	// Before responding, check if the HTTP version of the request is supported (HTTP/1.1)
+	if http_version != HttpVersion::new("HTTP/1.1").unwrap() {
+		eprintln!("Expected HTTP version HTTP/1.1, found {}. Dropping connection...", http_version);
+		terminate_connection(stream);
+		return;
+	}
+
+	// Send a HTTP 200 OK response
+	stream.write("HTTP/1.1 200 \r\n".as_bytes()).unwrap();
+
+	// Send a "Hello, World!" response (the CRLF before the Hello World is to signal the beginning of message body)
+	stream.write("\r\nHello, World!".as_bytes()).unwrap();
 
 	// Once done, terminate the connection
 	terminate_connection(stream);
