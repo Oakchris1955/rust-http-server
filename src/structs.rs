@@ -2,8 +2,8 @@ use std::fmt;
 
 /// A rather simple struct implementing an complicated initialization method and the `Display trait`
 pub struct HttpVersion {
-	major: usize,
-	minor: usize
+	pub major: usize,
+	pub minor: usize
 }
 
 impl HttpVersion {
