@@ -1,4 +1,4 @@
-use std::net::{TcpListener, TcpStream, Shutdown};
+use std::net::{TcpListener, TcpStream};
 use std::process::exit;
 
 mod utils;
@@ -19,14 +19,11 @@ fn handle_client(mut stream: TcpStream) {
 		println!("Method: {}\nPath: {}\nHTTP version: {}", splitted_first_line.next().unwrap(), splitted_first_line.next().unwrap(), splitted_first_line.next().unwrap());
 	} else {
 		eprintln!("Invalid HTTP request detected. Dropping connection...");
+		terminate_connection(stream);
+		return;
 	}
 
-	loop {
-		match stream.shutdown(Shutdown::Both) {
-			Ok(_) => break,
-			Err(_) => ()
-		}
-	}
+	terminate_connection(stream);
 }
 
 fn main() {
