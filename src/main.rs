@@ -26,30 +26,31 @@ fn handle_client(mut stream: TcpStream) {
 	// Then split it by whitespace
 	let mut splitted_first_line = first_line.split_whitespace();
 
-	// Check if the resulting slices are three in number (as they should be)
-	if splitted_first_line.clone().count() == 3 {
-		// If yes, start obtaining the HTTP method, target and version, terminating the connection in case of errors
-		let Some(method) = HttpMethod::new(splitted_first_line.next().unwrap()) else {
-			eprintln!("Invalid HTTP method detected. Dropping connection...");
-			terminate_connection(stream);
-			return;
-		};
-		let target = splitted_first_line.next().unwrap();
-		// Note: a HttpVersion structs will only check if the HTTP version is in the format "HTTP/{num}.{num}" and won't check if the major and minor revisions of the HTTP protocol exist. This check will occur later on our code
-		let Some(http_version) = HttpVersion::new(splitted_first_line.next().unwrap()) else {
-			eprintln!("Invalid HTTP version detected. Dropping connection...");
-			terminate_connection(stream);
-			return;
-		};
-
-		// Print a message to stdout about the HTTP request (meant for debugging, will be removed in the near future)
-		println!("Method: {}\nPath: {}\nHTTP version: {}", method, target, http_version);
-	} else {
-		// If no, print an error message to stderr and immediately terminate connection
+	// Check if the resulting slices aren't three in number (as they should be)
+	if splitted_first_line.clone().count() != 3 {
+		// If yes, print an error message to stderr and immediately terminate connection
 		eprintln!("Invalid HTTP request detected. Dropping connection...");
 		terminate_connection(stream);
 		return;
 	}
+
+	// Else, start obtaining the HTTP method, target and version, terminating the connection in case of errors
+	let Some(method) = HttpMethod::new(splitted_first_line.next().unwrap()) else {
+		eprintln!("Invalid HTTP method detected. Dropping connection...");
+		terminate_connection(stream);
+		return;
+	};
+	let target = splitted_first_line.next().unwrap();
+	// Note: a HttpVersion structs will only check if the HTTP version is in the format "HTTP/{num}.{num}" and won't check if the major and minor revisions of the HTTP protocol exist. This check will occur later on our code
+	let Some(http_version) = HttpVersion::new(splitted_first_line.next().unwrap()) else {
+		eprintln!("Invalid HTTP version detected. Dropping connection...");
+		terminate_connection(stream);
+		return;
+	};
+
+	// Print a message to stdout about the HTTP request (meant for debugging, will be removed in the near future)
+	println!("Method: {}\nPath: {}\nHTTP version: {}", method, target, http_version);
+
 
 	// Once done, terminate the connection
 	terminate_connection(stream);
