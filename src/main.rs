@@ -19,7 +19,7 @@ fn handle_client(mut stream: TcpStream) {
 
 
 	let first_line = read_line(&mut stream);
-	let mut splitted_first_line = first_line.split(' ');
+	let mut splitted_first_line = first_line.split_whitespace();
 
 	if splitted_first_line.clone().count() == 3 {
 		let Some(method) = HttpMethod::new(splitted_first_line.next().unwrap()) else {
