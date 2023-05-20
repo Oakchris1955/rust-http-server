@@ -1,11 +1,13 @@
 use std::fmt;
 
+/// A rather simple struct implementing an complicated initialization method and the `Display trait`
 pub struct HttpVersion {
 	major: usize,
 	minor: usize
 }
 
 impl HttpVersion {
+	/// Initialize a `HttpVersion` by passing a string to it in the format `HTTP/{int}.{int}`
 	pub fn new(version: &str) -> Option<Self> {
 		if version.len() >= 5 {
 			if &version[0..4] == "HTTP" && &version[4..5] == "/" {
