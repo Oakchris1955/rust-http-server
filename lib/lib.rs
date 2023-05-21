@@ -49,7 +49,8 @@ impl HttpServer {
 	fn handle_connection(&self, stream: TcpStream) {
 		let mut connection = HttpConnection::new(stream);
 		
-		loop {
+		let mut connection_open = true;
+		while connection_open {
 			let exchange = HttpExchange::new(&mut connection).unwrap();
 
 			// Before responding, check if the HTTP version of the request is supported (HTTP/1.1)
@@ -59,11 +60,25 @@ impl HttpServer {
 				return;
 			}
 
-			exchange.headers.iter().for_each(|header| {println!("{}", header)});
+			// Process headers and print them in while doing so
+			for header in exchange.headers.iter() {
+				match header.name.as_str() {
+					"Connection" => {
+						match header.value.as_str() {
+							"close" => connection_open = false,
+							_ => ()
+						}
+					},
+					_ => ()
+				}
+				println!("{}", header)
+			}
 
 			// If everything is alright, respond with a dummy response
 			exchange.send_response("Hello, World!");
 		}
+
+		connection.terminate_connection()
 	}
 }
 
