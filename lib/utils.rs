@@ -1,5 +1,5 @@
 use std::io::Read;
-use std::net::{TcpStream, Shutdown};
+use std::net::TcpStream;
 
 pub fn read_line(stream: &mut TcpStream) -> String {
 	let mut temp_string = String::new();
@@ -22,13 +22,4 @@ pub fn read_line(stream: &mut TcpStream) -> String {
 	}
 
 	temp_string
-}
-
-pub fn terminate_connection(stream: &TcpStream) {
-	loop {
-		match stream.shutdown(Shutdown::Both) {
-			Ok(_) => break,
-			Err(_) => ()
-		}
-	}
 }
