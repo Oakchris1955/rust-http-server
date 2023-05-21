@@ -56,6 +56,13 @@ impl HttpServer {
 			// Before responding, check if the HTTP version of the request is supported (HTTP/1.1)
 			if request.version != HttpVersion::new(VERSION).unwrap() {
 				eprintln!("Expected HTTP version {}, found {}. Dropping connection...", VERSION, request.version);
+				HttpResponse::new(
+					&mut connection,
+					HttpStatus::new(400).unwrap(),
+					HttpVersion::new(VERSION).unwrap(),
+					Vec::new(),
+					""
+				);
 				connection.terminate_connection();
 				return;
 			}
@@ -143,6 +150,13 @@ impl HttpRequest {
 		if splitted_first_line.clone().count() != 3 {
 			// If yes, print an error message to stderr and immediately terminate connection
 			eprintln!("Invalid HTTP request detected. Dropping connection...");
+			HttpResponse::new(
+				parent,
+				HttpStatus::new(400).unwrap(),
+				HttpVersion::new(VERSION).unwrap(),
+				Vec::new(),
+				""
+			);
 			parent.terminate_connection();
 			return None;
 		}
@@ -150,6 +164,13 @@ impl HttpRequest {
 		// Else, start obtaining the HTTP method, target and version, terminating the connection in case of errors
 		let Some(method) = HttpMethod::new(splitted_first_line.next().unwrap()) else {
 			eprintln!("Invalid HTTP method detected. Dropping connection...");
+			HttpResponse::new(
+				parent,
+				HttpStatus::new(400).unwrap(),
+				HttpVersion::new(VERSION).unwrap(),
+				Vec::new(),
+				""
+			);
 			parent.terminate_connection();
 			return None;
 		};
@@ -157,6 +178,13 @@ impl HttpRequest {
 		// Note: a HttpVersion structs will only check if the HTTP version is in the format "HTTP/{num}.{num}" and won't check if the major and minor revisions of the HTTP protocol exist. This check will occur later on our code
 		let Some(http_version) = HttpVersion::new(splitted_first_line.next().unwrap()) else {
 			eprintln!("Invalid HTTP version detected. Dropping connection...");
+			HttpResponse::new(
+				parent,
+				HttpStatus::new(400).unwrap(),
+				HttpVersion::new(VERSION).unwrap(),
+				Vec::new(),
+				""
+			);
 			parent.terminate_connection();
 			return None;
 		};
