@@ -24,7 +24,7 @@ pub fn read_line(stream: &mut TcpStream) -> String {
 	temp_string
 }
 
-pub fn terminate_connection(stream: TcpStream) {
+pub fn terminate_connection(stream: &TcpStream) {
 	loop {
 		match stream.shutdown(Shutdown::Both) {
 			Ok(_) => break,
