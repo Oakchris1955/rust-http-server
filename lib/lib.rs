@@ -133,7 +133,7 @@ impl HttpConnection {
 
 pub struct HttpRequest {
 	pub method: HttpMethod,
-	pub target: String,
+	pub target: HttpTarget,
 	pub version: HttpVersion,
 
 	pub headers: Vec<HttpHeader>,
@@ -174,7 +174,7 @@ impl HttpRequest {
 			parent.terminate_connection();
 			return None;
 		};
-		let target = splitted_first_line.next().unwrap().to_string();
+		let target = HttpTarget::new(splitted_first_line.next().unwrap());
 		// Note: a HttpVersion structs will only check if the HTTP version is in the format "HTTP/{num}.{num}" and won't check if the major and minor revisions of the HTTP protocol exist. This check will occur later on our code
 		let Some(http_version) = HttpVersion::new(splitted_first_line.next().unwrap()) else {
 			eprintln!("Invalid HTTP version detected. Dropping connection...");

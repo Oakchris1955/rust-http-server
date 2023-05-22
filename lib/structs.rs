@@ -71,3 +71,86 @@ impl fmt::Display for HttpHeader {
         write!(f, "{}: {}", self.name, self.value)
     }
 }
+
+pub struct HttpTarget {
+	pub absolute_path: String,
+	pub queries: Vec<QueryParameter>
+}
+
+impl HttpTarget {
+	pub fn new<S>(target: S) -> Self where S: Into<String> {
+		let target_string: String = Self::decode_url(target.into());
+
+		let (absolute_path, queries_str) = target_string.split_once('?').unwrap_or((&target_string, ""));
+
+		let mut queries = Vec::new();
+
+		if !queries_str.is_empty() {
+
+			let queries_split = queries_str.split("&");
+
+			queries = queries_split.map(|query_str| {
+				let (name, value): (&str, &str) = query_str.split_once("=").unwrap_or((queries_str, ""));
+
+				QueryParameter {
+					name: name.to_string(),
+					value: if value == "" { None } else { Some(value.to_string()) }
+				}
+			}).collect();
+
+		}
+
+		Self {
+			absolute_path: absolute_path.to_string(),
+			queries
+		}
+	}
+
+	fn decode_url(encoded_url: String) -> String {
+		let mut url_iterator = encoded_url.split("%");
+		
+		[url_iterator.next().unwrap().to_string(),
+			url_iterator.map(|str_to_decode| {
+
+				if str_to_decode.len() >= 2 {
+					if str_to_decode[..2].chars().all(|char_to_check| {
+						char_to_check.is_digit(16)
+					}) {
+						let mut concatenated_string = String::new();
+						concatenated_string.push(char::from_u32(u32::from_str_radix(&str_to_decode[..2], 16).unwrap()).unwrap());
+						concatenated_string.push_str(&str_to_decode[2..]);
+						return concatenated_string;
+					}
+				}
+
+				str_to_decode.to_string()
+			}).collect::<Vec<String>>().join("")
+		].join("")
+	}
+}
+
+impl fmt::Display for HttpTarget {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		write!(f, "{}{}", self.absolute_path, {
+			let mut query_string = self.queries.iter().map(|query| {
+				format!("{}{}&", query.name, match &query.value {
+					Some(value) => format!("={}", value),
+					None => "".to_string()
+				})
+			}).collect::<String>();
+
+			if !query_string.is_empty() {
+				query_string.insert_str(0, "?");
+				query_string.pop();
+			}
+			
+			query_string
+		})
+    }
+}
+
+#[derive(Debug)]
+pub struct QueryParameter {
+	pub name: String,
+	pub value: Option<String>
+}
