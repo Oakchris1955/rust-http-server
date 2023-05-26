@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::io::{self, Write};
 use std::net::{TcpListener, TcpStream, SocketAddr, Shutdown};
 use std::process::exit;
@@ -13,16 +14,22 @@ pub use structs::*;
 
 const VERSION: &str = "HTTP/1.1";
 
+type Handler = fn(HttpRequest, HttpResponse);
+
 pub struct HttpServer {
 	pub hostname: String,
-	pub port: u16
+	pub port: u16,
+
+	handlers: HashMap<String, Handler>
 }
 
 impl HttpServer {
 	pub fn new<S, N>(hostname: S, port:N) -> Self where S: Into<String>, N: Into<u16> {
 		Self {
 			hostname: hostname.into(),
-			port: port.into()
+			port: port.into(),
+
+			handlers: HashMap::new()
 		}
 	}
 
@@ -44,6 +51,10 @@ impl HttpServer {
 				}
 			}
 		}
+	}
+
+	pub fn on<S>(&mut self, path: S, handler: Handler) where S: Into<String> {
+		self.handlers.insert(path.into(), handler);
 	}
 
 	fn handle_connection(&self, stream: TcpStream) {
@@ -77,9 +88,17 @@ impl HttpServer {
 				println!("{}", header)
 			}
 
-			// If everything is alright, respond with a dummy response
-			let response = HttpResponse::new(&mut connection);
-			response.send(format!("Hello to target:\n{}", request.target));
+			// If everything is alright, check if an appropriate handler exists for this request
+			if let Some(handler) = self.handlers.get(&request.target.absolute_path) {
+				handler(request, HttpResponse::new(&mut connection))
+			} else {
+				// Otherwise, respond with a HTTP 404 Not Found status
+				let mut response = HttpResponse::new(&mut connection);
+				response.status(HttpStatus::new(404).unwrap());
+				response.end();
+				connection.terminate_connection();
+				break;
+			}
 		}
 
 		connection.terminate_connection()
@@ -150,7 +169,7 @@ impl HttpRequest {
 		let Some(method) = HttpMethod::new(splitted_first_line.next().unwrap()) else {
 			eprintln!("Invalid HTTP method detected. Dropping connection...");
 			let mut response = HttpResponse::new(parent);
-			response.status(HttpStatus::new(400).unwrap());
+			response.status(HttpStatus::new(501).unwrap());
 			response.end();
 			parent.terminate_connection();
 			return None;
