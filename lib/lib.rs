@@ -56,13 +56,9 @@ impl HttpServer {
 			// Before responding, check if the HTTP version of the request is supported (HTTP/1.1)
 			if request.version != HttpVersion::new(VERSION).unwrap() {
 				eprintln!("Expected HTTP version {}, found {}. Dropping connection...", VERSION, request.version);
-				HttpResponse::new(
-					&mut connection,
-					HttpStatus::new(400).unwrap(),
-					HttpVersion::new(VERSION).unwrap(),
-					Vec::new(),
-					""
-				);
+				let mut response = HttpResponse::new(&mut connection);
+				response.status(HttpStatus::new(400).unwrap());
+				response.end();
 				connection.terminate_connection();
 				return;
 			}
@@ -82,15 +78,8 @@ impl HttpServer {
 			}
 
 			// If everything is alright, respond with a dummy response
-			let response = HttpResponse::new(
-				&mut connection,
-				HttpStatus::new(200).unwrap(),
-				request.version,
-				Vec::new(),
-				format!("Hello, World!\nYour current target is: {}", request.target)
-			);
-
-			println!("Sent request with status: {}\nand message: {}", response.status, response.message);
+			let response = HttpResponse::new(&mut connection);
+			response.send(format!("Hello to target:\n{}", request.target));
 		}
 
 		connection.terminate_connection()
@@ -150,13 +139,9 @@ impl HttpRequest {
 		if splitted_first_line.clone().count() != 3 {
 			// If yes, print an error message to stderr and immediately terminate connection
 			eprintln!("Invalid HTTP request detected. Dropping connection...");
-			HttpResponse::new(
-				parent,
-				HttpStatus::new(400).unwrap(),
-				HttpVersion::new(VERSION).unwrap(),
-				Vec::new(),
-				""
-			);
+			let mut response = HttpResponse::new(parent);
+			response.status(HttpStatus::new(400).unwrap());
+			response.end();
 			parent.terminate_connection();
 			return None;
 		}
@@ -164,13 +149,9 @@ impl HttpRequest {
 		// Else, start obtaining the HTTP method, target and version, terminating the connection in case of errors
 		let Some(method) = HttpMethod::new(splitted_first_line.next().unwrap()) else {
 			eprintln!("Invalid HTTP method detected. Dropping connection...");
-			HttpResponse::new(
-				parent,
-				HttpStatus::new(400).unwrap(),
-				HttpVersion::new(VERSION).unwrap(),
-				Vec::new(),
-				""
-			);
+			let mut response = HttpResponse::new(parent);
+			response.status(HttpStatus::new(400).unwrap());
+			response.end();
 			parent.terminate_connection();
 			return None;
 		};
@@ -178,13 +159,9 @@ impl HttpRequest {
 		// Note: a HttpVersion structs will only check if the HTTP version is in the format "HTTP/{num}.{num}" and won't check if the major and minor revisions of the HTTP protocol exist. This check will occur later on our code
 		let Some(http_version) = HttpVersion::new(splitted_first_line.next().unwrap()) else {
 			eprintln!("Invalid HTTP version detected. Dropping connection...");
-			HttpResponse::new(
-				parent,
-				HttpStatus::new(400).unwrap(),
-				HttpVersion::new(VERSION).unwrap(),
-				Vec::new(),
-				""
-			);
+			let mut response = HttpResponse::new(parent);
+			response.status(HttpStatus::new(400).unwrap());
+			response.end();
 			parent.terminate_connection();
 			return None;
 		};
@@ -224,38 +201,53 @@ impl HttpRequest {
 	}
 }
 
-pub struct HttpResponse {
+pub struct HttpResponse<'s> {
+	parent: &'s mut HttpConnection,
+
 	pub status: HttpStatus,
 	pub version: HttpVersion,
 
 	pub headers: Vec<HttpHeader>,
-
-	pub message: String
 }
 
-impl HttpResponse {
-	pub fn new<S>(parent: &mut HttpConnection, status: HttpStatus, version: HttpVersion, headers: Vec<HttpHeader>, message: S) -> Self where S: Into<String> {
-		let message_str: String = message.into();
+impl<'s> HttpResponse<'s> {
+	pub fn new(parent: &'s mut HttpConnection) -> Self {
+		Self {
+			parent,
+			status: HttpStatus::new(200).unwrap(),
+			version: HttpVersion::new(VERSION).unwrap(),
+			headers: Vec::new(),
+		}
+	}
 
-		// Send a HTTP 200 OK response
-		parent.stream.write(format!("{} {} \r\n", version, status).as_bytes()).unwrap();
 
-		// Send a header indicating message length
-		parent.stream.write(format!("Content-Length: {}\r\n", message_str.len()).as_bytes()).unwrap();
+	pub fn status(&mut self, status: HttpStatus) {
+		self.status = status;
+	}
+
+	pub fn send<S>(self, message: S) where S: Into<String> {
+		let message: String = message.into();
+
+		// Send a HTTP status line response
+		self.parent.stream.write(format!("{} {} \r\n", self.version, self.status).as_bytes()).unwrap();
+
+		if !message.is_empty() {
+			// Send a header indicating message length if message isn't empty
+			self.parent.stream.write(format!("Content-Length: {}\r\n", message.len()).as_bytes()).unwrap();
+		}
 
 		// Loop through each header and write them to connection stream
-		for header in &headers {
-			parent.stream.write(format!("{}: {}\r\n", header.name, header.value).as_bytes()).unwrap();
+		for header in &self.headers {
+			self.parent.stream.write(format!("{}: {}\r\n", header.name, header.value).as_bytes()).unwrap();
 		}
 
-		// Send a response to the client (the CRLF before the response is to signal the beginning of message body)
-		parent.stream.write(format!("\r\n{}", message_str).as_bytes()).unwrap();
+		// Send the response to the client (the CRLF before the response is to signal the beginning of message body)
+		// If the message is empty, this will essentialy write "\r\n" to the stream, so it will be like there is no message body
+		self.parent.stream.write(format!("\r\n{}", message).as_bytes()).unwrap();
+	}
 
-		Self {
-			status,
-			version,
-			headers,
-			message: message_str
-		}
+	pub fn end(self) {
+		// Basically send an empty response
+		self.send("");
 	}
 }
