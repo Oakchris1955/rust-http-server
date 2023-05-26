@@ -2,7 +2,10 @@ use std::fmt;
 
 pub enum HttpStatus {
 	OK,
-	BadRequest
+	BadRequest,
+	NotFound,
+	InternalError,
+	NotImplemented
 }
 
 impl HttpStatus {
@@ -11,6 +14,9 @@ impl HttpStatus {
 		match status {
 			200 => Some(Self::OK),
 			400 => Some(Self::BadRequest),
+			404 => Some(Self::NotFound),
+			500 => Some(Self::InternalError),
+			501 => Some(Self::NotImplemented),
 			_ => None
 		}
 	}
@@ -20,7 +26,10 @@ impl fmt::Display for HttpStatus {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", match self {
 			Self::OK => 200,
-			Self::BadRequest => 400
+			Self::BadRequest => 400,
+			Self::NotFound => 404,
+			Self::InternalError => 500,
+			Self::NotImplemented => 501
 		})
     }
 }
