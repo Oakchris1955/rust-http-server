@@ -74,6 +74,16 @@ impl HttpServer {
 				return;
 			}
 
+			// Then check if a `Host` was sent, else respond with a 400 status code
+			if request.version != HttpVersion::new(VERSION).unwrap() {
+				eprintln!("Expected 'Host' header, found nothing. Dropping connection...");
+				let mut response = HttpResponse::new(&mut connection);
+				response.status(HttpStatus::new(400).unwrap());
+				response.end();
+				connection.terminate_connection();
+				return;
+			}
+
 			// Process headers and print them in while doing so
 			for header in request.headers.iter() {
 				match header.name.as_str() {
