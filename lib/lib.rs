@@ -14,13 +14,20 @@ pub use structs::*;
 
 const VERSION: &str = "HTTP/1.1";
 
-type Handler = fn(HttpRequest, HttpResponse);
+enum HandlerHttpMethod {
+	Specific(HttpMethod),
+	Any
+}
+
+type HandlerCallback = fn(HttpRequest, HttpResponse);
+
+type Handler = (HandlerHttpMethod, HandlerCallback);
 
 pub struct HttpServer {
 	pub hostname: String,
 	pub port: u16,
 
-	handlers: HashMap<String, Handler>
+	handlers: HashMap<String, Vec<Handler>>
 }
 
 impl HttpServer {
@@ -52,9 +59,38 @@ impl HttpServer {
 			}
 		}
 	}
+	
 
-	pub fn on<S>(&mut self, path: S, handler: Handler) where S: Into<String> {
-		self.handlers.insert(path.into(), handler);
+	pub fn on<S>(&mut self, path: S, handler: HandlerCallback) where S: Into<String> {
+		self.append_handler(path.into(), HandlerHttpMethod::Any, handler);
+	}
+
+	pub fn on_get<S>(&mut self, path: S, handler: HandlerCallback) where S: Into<String> {
+		self.append_handler(path.into(), HandlerHttpMethod::Specific(HttpMethod::GET), handler);
+	}
+
+	pub fn on_head<S>(&mut self, path: S, handler: HandlerCallback) where S: Into<String> {
+		self.append_handler(path.into(), HandlerHttpMethod::Specific(HttpMethod::HEAD), handler);
+	}
+
+	pub fn on_post<S>(&mut self, path: S, handler: HandlerCallback) where S: Into<String> {
+		self.append_handler(path.into(), HandlerHttpMethod::Specific(HttpMethod::POST), handler);
+	}
+
+	pub fn on_put<S>(&mut self, path: S, handler: HandlerCallback) where S: Into<String> {
+		self.append_handler(path.into(), HandlerHttpMethod::Specific(HttpMethod::PUT), handler);
+	}
+
+	pub fn on_delete<S>(&mut self, path: S, handler: HandlerCallback) where S: Into<String> {
+		self.append_handler(path.into(), HandlerHttpMethod::Specific(HttpMethod::DELETE), handler);
+	}
+
+
+	fn append_handler(&mut self, path: String, method: HandlerHttpMethod, handler: HandlerCallback) {
+		match self.handlers.get_mut(&path) {
+			Some(handlers) => { handlers.push((method, handler)); },
+			None => { self.handlers.insert(path, vec![(method, handler)]); }
+		};
 	}
 
 	fn handle_connection(&self, stream: TcpStream) {
@@ -99,8 +135,19 @@ impl HttpServer {
 			}
 
 			// If everything is alright, check if an appropriate handler exists for this request
-			if let Some(handler) = self.handlers.get(&request.target.absolute_path) {
-				handler(request, HttpResponse::new(&mut connection))
+			if let Some(handlers) = self.handlers.get(&request.target.absolute_path) {
+				for handler in handlers {
+					match &handler.0 {
+						HandlerHttpMethod::Specific(method) => {
+							if request.method == *method {
+								(handler.1)(request.clone(), HttpResponse::new(&mut connection))
+							}
+						},
+						HandlerHttpMethod::Any => {
+							(handler.1)(request.clone(), HttpResponse::new(&mut connection))
+						}
+					}
+				}
 			} else {
 				// Otherwise, respond with a HTTP 404 Not Found status
 				let mut response = HttpResponse::new(&mut connection);
@@ -149,6 +196,7 @@ impl HttpConnection {
 	}
 }
 
+#[derive(Clone)]
 pub struct HttpRequest {
 	pub method: HttpMethod,
 	pub target: HttpTarget,

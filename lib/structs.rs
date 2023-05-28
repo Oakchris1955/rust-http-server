@@ -1,7 +1,7 @@
 use std::fmt;
 
 /// A rather simple struct implementing an complicated initialization method and the `Display trait`
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone)]
 pub struct HttpVersion {
 	pub major: usize,
 	pub minor: usize
@@ -48,6 +48,7 @@ impl fmt::Display for HttpVersion {
 }
 
 /// A rather generalized HTTP header struct
+#[derive(Clone)]
 pub struct HttpHeader {
 	pub name: String,
 	pub value: String
@@ -72,6 +73,7 @@ impl fmt::Display for HttpHeader {
     }
 }
 
+#[derive(Clone)]
 pub struct HttpTarget {
 	pub absolute_path: String,
 	pub queries: Vec<QueryParameter>
@@ -149,7 +151,7 @@ impl fmt::Display for HttpTarget {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct QueryParameter {
 	pub name: String,
 	pub value: Option<String>
