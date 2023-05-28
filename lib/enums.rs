@@ -2,8 +2,13 @@ use std::fmt;
 
 pub enum HttpStatus {
 	OK,
+	Created,
+	Accepted,
+	NoContent,
+
 	BadRequest,
 	NotFound,
+
 	InternalError,
 	NotImplemented
 }
@@ -13,8 +18,13 @@ impl HttpStatus {
 	pub fn new(status: usize) -> Option<Self> {
 		match status {
 			200 => Some(Self::OK),
+			201 => Some(Self::Created),
+			202 => Some(Self::Accepted),
+			204 => Some(Self::NoContent),
+
 			400 => Some(Self::BadRequest),
 			404 => Some(Self::NotFound),
+
 			500 => Some(Self::InternalError),
 			501 => Some(Self::NotImplemented),
 			_ => None
@@ -26,8 +36,13 @@ impl fmt::Display for HttpStatus {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", match self {
 			Self::OK => 200,
+			Self::Created => 201,
+			Self::Accepted => 202,
+			Self::NoContent => 204,
+
 			Self::BadRequest => 400,
 			Self::NotFound => 404,
+
 			Self::InternalError => 500,
 			Self::NotImplemented => 501
 		})
@@ -38,7 +53,10 @@ impl fmt::Display for HttpStatus {
 /// A rather simple enum implementing an initialization method and the `Display` trait
 pub enum HttpMethod {
 	GET,
-	HEAD
+	HEAD,
+	POST,
+	PUT,
+	DELETE
 }
 
 impl HttpMethod {
@@ -47,6 +65,9 @@ impl HttpMethod {
 		match method {
 			"GET" => Some(Self::GET),
 			"HEAD" => Some(Self::HEAD),
+			"POST" => Some(Self::POST),
+			"PUT" => Some(Self::PUT),
+			"DELETE" => Some(Self::DELETE),
 			_ => None
 		}
 	}
@@ -56,7 +77,10 @@ impl fmt::Display for HttpMethod {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", match self {
 			Self::GET => "GET",
-			Self::HEAD => "HEAD"
+			Self::HEAD => "HEAD",
+			Self::POST => "POST",
+			Self::PUT => "PUT",
+			Self::DELETE => "DELETE"
 		})
     }
 }
