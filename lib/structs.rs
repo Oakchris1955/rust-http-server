@@ -156,3 +156,15 @@ pub struct QueryParameter {
 	pub name: String,
 	pub value: Option<String>
 }
+
+impl fmt::Display for QueryParameter {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		write!(f, "{}{}", self.name, {
+			if let Some(value) = &self.value {
+				format!(": {}", value)
+			} else {
+				String::new()
+			}
+		})
+    }
+}
