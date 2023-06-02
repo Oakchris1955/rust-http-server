@@ -131,7 +131,6 @@ impl HttpServer {
 					},
 					_ => ()
 				}
-				println!("{}", header)
 			}
 
 			// If everything is alright, check if an appropriate handler exists for this request
@@ -173,11 +172,11 @@ impl HttpConnection {
 		// Obtain peer address (if possible) and log it to stdout
 		let peer_address = stream.peer_addr();
 		
-		let readable_peer_address = match peer_address {
+		// Code below will probably be uncommented when logging is implemented
+		/*let _readable_peer_address = match peer_address {
 			Ok(sock_addr) => sock_addr.ip().to_string(),
 			Err(_) => String::from("COULDN'T OBTAIN PEER ADDRESS")
-		};
-		println!("Received connection from {}", readable_peer_address);
+		};*/
 
 		Self {
 			peer_address,
@@ -242,9 +241,6 @@ impl HttpRequest {
 			parent.terminate_connection();
 			return None;
 		};
-
-		// Print a message to stdout about the HTTP request (meant for debugging, will be removed in the near future)
-		println!("Method: {}\nPath: {}\nHTTP version: {}", method, target, http_version);
 
 
 		// Create a variable for storing HTTP headers
