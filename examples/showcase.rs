@@ -5,9 +5,7 @@ fn main() {
 	server.on("/test", |request, response| {
 		response.send(format!(
 			"Your current query options are:\n{}",
-			request.target.queries.iter().map(|x| {
-				format!("{}: {}\n", x.name, x.value.clone().unwrap_or(String::new()))
-			}).collect::<String>()
+			request.target.queries.iter().map(|x| x.to_string()).collect::<String>()
 		))
 	});
 
