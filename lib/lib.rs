@@ -98,7 +98,13 @@ impl HttpServer {
 		
 		let mut connection_open = true;
 		while connection_open {
-			let request = HttpRequest::new(&mut connection).unwrap();
+			let request = match HttpRequest::new(&mut connection) {
+				Some(value) => value,
+				None => {
+					eprintln!("Couldn't create new request for connection. Dropping connection...");
+					break;
+				}
+			};
 
 			// Before responding, check if the HTTP version of the request is supported (HTTP/1.1)
 			if request.version != HttpVersion::new(VERSION).unwrap() {
