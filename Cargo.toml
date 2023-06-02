@@ -9,8 +9,4 @@ edition = "2021"
 name = "oak_http_server"
 path = "lib/lib.rs"
 
-[[bin]]
-name = "example_server"
-path = "src/main.rs"
-
 [dependencies]
