@@ -1,7 +1,10 @@
 use oak_http_server::HttpServer;
 
 fn main() {
-	let mut server = HttpServer::new("localhost", 2300 as u16);
+	let hostname = "localhost";
+	let port: u16 = 2300;
+
+	let mut server = HttpServer::new(hostname, port);
 	server.on("/test", |request, response| {
 		response.send(format!(
 			"Your current query options are:\n{}",
