@@ -107,24 +107,23 @@ impl HttpServer {
 				}
 			};
 
+			// Create a HttpResponse beforehand that will be used in case an error occurs
+			let mut err_response = HttpResponse::new(&mut connection);
+
 			// Before responding, check if the HTTP version of the request is supported (HTTP/1.1)
 			if request.version != HttpVersion::new(VERSION).unwrap() {
 				eprintln!("Expected HTTP version {}, found {}. Dropping connection...", VERSION, request.version);
-				let mut response = HttpResponse::new(&mut connection);
-				response.status(HttpStatus::new(400).unwrap());
-				response.end();
-				connection.terminate_connection();
-				return;
+				err_response.status(HttpStatus::new(400).unwrap());
+				err_response.end();
+				break;
 			}
 
 			// Then check if a `Host` was sent, else respond with a 400 status code
 			if request.version != HttpVersion::new(VERSION).unwrap() {
 				eprintln!("Expected 'Host' header, found nothing. Dropping connection...");
-				let mut response = HttpResponse::new(&mut connection);
-				response.status(HttpStatus::new(400).unwrap());
-				response.end();
-				connection.terminate_connection();
-				return;
+				err_response.status(HttpStatus::new(400).unwrap());
+				err_response.end();
+				break;
 			}
 
 			// Process headers and print them in while doing so
@@ -156,10 +155,8 @@ impl HttpServer {
 				}
 			} else {
 				// Otherwise, respond with a HTTP 404 Not Found status
-				let mut response = HttpResponse::new(&mut connection);
-				response.status(HttpStatus::new(404).unwrap());
-				response.end();
-				connection.terminate_connection();
+				err_response.status(HttpStatus::new(404).unwrap());
+				err_response.end();
 				break;
 			}
 		}
@@ -218,34 +215,31 @@ impl HttpRequest {
 		// Then split it by whitespace
 		let mut splitted_first_line = first_line.split_whitespace();
 
+		// Create a HttpResponse beforehand that will be used in case an error occurs
+		let mut err_response = HttpResponse::new(parent);
+
 		// Check if the resulting slices aren't three in number (as they should be)
 		if splitted_first_line.clone().count() != 3 {
 			// If yes, print an error message to stderr and immediately terminate connection
 			eprintln!("Invalid HTTP request detected. Dropping connection...");
-			let mut response = HttpResponse::new(parent);
-			response.status(HttpStatus::new(400).unwrap());
-			response.end();
-			parent.terminate_connection();
+			err_response.status(HttpStatus::new(400).unwrap());
+			err_response.end();
 			return None;
 		}
 
 		// Else, start obtaining the HTTP method, target and version, terminating the connection in case of errors
 		let Some(method) = HttpMethod::new(splitted_first_line.next().unwrap()) else {
 			eprintln!("Invalid HTTP method detected. Dropping connection...");
-			let mut response = HttpResponse::new(parent);
-			response.status(HttpStatus::new(501).unwrap());
-			response.end();
-			parent.terminate_connection();
+			err_response.status(HttpStatus::new(501).unwrap());
+			err_response.end();
 			return None;
 		};
 		let target = HttpTarget::new(splitted_first_line.next().unwrap());
 		// Note: a HttpVersion structs will only check if the HTTP version is in the format "HTTP/{num}.{num}" and won't check if the major and minor revisions of the HTTP protocol exist. This check will occur later on our code
 		let Some(http_version) = HttpVersion::new(splitted_first_line.next().unwrap()) else {
 			eprintln!("Invalid HTTP version detected. Dropping connection...");
-			let mut response = HttpResponse::new(parent);
-			response.status(HttpStatus::new(400).unwrap());
-			response.end();
-			parent.terminate_connection();
+			err_response.status(HttpStatus::new(400).unwrap());
+			err_response.end();
 			return None;
 		};
 
@@ -263,7 +257,6 @@ impl HttpRequest {
 
 			let Some(header) = HttpHeader::new(&line) else {
 				eprintln!("Invalid HTTP header syntax detected. Dropping connection...");
-				//terminate_connection(stream);
 				return None;
 			};
 
