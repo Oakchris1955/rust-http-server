@@ -12,5 +12,7 @@ fn main() {
 		))
 	});
 
-	server.start();
+	server.start(|| {
+		println!("Successfully initiated server");
+	});
 }

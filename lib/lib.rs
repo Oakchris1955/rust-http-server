@@ -40,12 +40,13 @@ impl HttpServer {
 		}
 	}
 
-	pub fn start(&self) {// Initiate a TCP Listener at localhost port 2300 (port and IP address are subject to change)
+	pub fn start(&self, callback: fn()) {// Initiate a TCP Listener at localhost port 2300 (port and IP address are subject to change)
 		let listener = TcpListener::bind(format!("{}:{}", self.hostname, self.port)).unwrap_or_else(|err| {
 			eprintln!("Couldn't initiate TCP server. Error message: {}", err);
 			exit(1);
 		});
-		println!("Successfully initiated server");
+
+		callback();
 
 		// For each incoming connection request, accept connection and pass control of connection to "handle_client" function
 		for stream in listener.incoming() {
