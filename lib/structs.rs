@@ -91,14 +91,16 @@ impl HttpTarget {
 
 			let queries_split = queries_str.split("&");
 
-			queries = queries_split.map(|query_str| {
-				let (name, value): (&str, &str) = query_str.split_once("=").unwrap_or((queries_str, ""));
-
-				QueryParameter {
-					name: name.to_string(),
-					value: if value == "" { None } else { Some(value.to_string()) }
+			for query_str in queries_split {
+				if let Some((name, value)) = query_str.split_once("=") {
+					queries.push(
+						QueryParameter {
+							name: name.to_string(),
+							value: value.to_string()
+						}
+					)
 				}
-			}).collect();
+			};
 
 		}
 
@@ -154,17 +156,11 @@ impl fmt::Display for HttpTarget {
 #[derive(Debug, Clone)]
 pub struct QueryParameter {
 	pub name: String,
-	pub value: Option<String>
+	pub value: String
 }
 
 impl fmt::Display for QueryParameter {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		write!(f, "{}{}", self.name, {
-			if let Some(value) = &self.value {
-				format!(": {}", value)
-			} else {
-				String::new()
-			}
-		})
+		write!(f, "{}{}", self.name, self.value)
     }
 }
