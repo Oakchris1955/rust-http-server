@@ -134,19 +134,19 @@ impl HttpTarget {
 impl fmt::Display for HttpTarget {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		write!(f, "{}{}", self.absolute_path, {
-			let mut query_string = self.queries.iter().map(|query| {
-				format!("{}{}&", query.name, match &query.value {
-					Some(value) => format!("={}", value),
-					None => "".to_string()
-				})
+			let mut queries_string = self.queries.iter().map(|query| {
+				let mut query_string = query.to_string();
+				query_string.push('&');
+
+				query_string
 			}).collect::<String>();
 
-			if !query_string.is_empty() {
-				query_string.insert_str(0, "?");
-				query_string.pop();
+			if !queries_string.is_empty() {
+				queries_string.insert_str(0, "?");
+				queries_string.pop();
 			}
 			
-			query_string
+			queries_string
 		})
     }
 }
