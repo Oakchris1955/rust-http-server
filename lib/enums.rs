@@ -1,6 +1,7 @@
 use std::fmt;
 
 #[derive(PartialEq)]
+#[non_exhaustive]
 pub enum HttpStatus {
 	OK,
 	Created,
@@ -53,6 +54,7 @@ impl fmt::Display for HttpStatus {
 
 /// A rather simple enum implementing an initialization method and the `Display` trait
 #[derive(PartialEq, Clone)]
+#[non_exhaustive]
 pub enum HttpMethod {
 	GET,
 	HEAD,
