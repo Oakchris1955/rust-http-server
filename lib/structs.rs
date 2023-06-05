@@ -1,6 +1,6 @@
 use std::fmt;
 
-/// A rather simple struct implementing an complicated initialization method and the `Display trait`
+/// The HTTP version of a request or a response
 #[derive(PartialEq, Clone)]
 pub struct HttpVersion {
 	pub major: usize,
@@ -8,7 +8,20 @@ pub struct HttpVersion {
 }
 
 impl HttpVersion {
-	/// Initialize a `HttpVersion` by passing a string to it in the format `HTTP/{int}.{int}`
+	/// Initialize a [`HttpVersion`] by passing a [`&str`] to it in the format `HTTP/{major}.{minor}`. The corresponding numbers `major` and `minor` represent a HTTP version and are stored in the struct's fields.
+	///
+	/// If for whatever reason this function fails to parse the [`&str`] provided into a [`HttpVersion`], it will return [`None`].
+	///
+	/// If the [`&str`] provided is parsed successfully, then the function will return a [`Some`] value containing a [`HttpVersion`] struct
+	///
+	/// # Example
+	///
+	/// ```
+	/// fn main() {
+	/// 	let version = HttpVersion::new("HTTP/1.1").unwrap(); // Unwrap the `Some` value the `new` function returns
+	/// 	println!("{}", version); // Prints "HTTP/1.1" in the console
+	/// }
+	/// ```
 	pub fn new(version: &str) -> Option<Self> {
 		if version.len() >= 5 {
 			if &version[0..4] == "HTTP" && &version[4..5] == "/" {
@@ -47,7 +60,7 @@ impl fmt::Display for HttpVersion {
     }
 }
 
-/// A rather generalized HTTP header struct
+/// Represents a HTTP header
 #[derive(Clone)]
 pub struct HttpHeader {
 	pub name: String,
@@ -55,6 +68,7 @@ pub struct HttpHeader {
 }
 
 impl HttpHeader {
+	/// Parses a [`&str`] in the following format: "{header name}: {header value}" into a [`HttpHeader`]
 	pub fn new(header: &str) -> Option<Self> {
 		let Some((name, value)) = header.split_once(": ") else {
 			return None;
@@ -73,13 +87,17 @@ impl fmt::Display for HttpHeader {
     }
 }
 
+/// Represents a HTTP URL (named `HttpTarget` for formality reasons)
 #[derive(Clone)]
 pub struct HttpTarget {
+	/// Stores the URL path, according to RFC 3986
 	pub absolute_path: String,
+	/// A Vector of [`QueryParameter`]s (query is defined in RFC 3986 as well)
 	pub queries: Vec<QueryParameter>
 }
 
 impl HttpTarget {
+	/// Parses any struct that implements the [`Into`] trait for [`String`] into a String, then parses that String into a [`HttpTarget`]
 	pub fn new<S>(target: S) -> Self where S: Into<String> {
 		let target_string: String = Self::decode_url(target.into());
 
@@ -153,6 +171,7 @@ impl fmt::Display for HttpTarget {
     }
 }
 
+/// Represents a query parameter (check RFC 3986 for more info)
 #[derive(Debug, Clone)]
 pub struct QueryParameter {
 	pub name: String,
