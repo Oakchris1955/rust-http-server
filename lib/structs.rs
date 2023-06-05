@@ -8,7 +8,7 @@ pub struct HttpVersion {
 }
 
 impl HttpVersion {
-	/// Initialize a [`HttpVersion`] by passing a [`&str`] to it in the format `HTTP/{major}.{minor}`. The corresponding numbers `major` and `minor` represent a HTTP version and are stored in the struct's fields.
+	/// Initialize a [`HttpVersion`] by passing a [`&str`] or [`String`] to it in the format `HTTP/{major}.{minor}`. The corresponding numbers `major` and `minor` represent a HTTP version and are stored in the struct's fields.
 	///
 	/// If for whatever reason this function fails to parse the [`&str`] provided into a [`HttpVersion`], it will return [`None`].
 	///
@@ -22,7 +22,9 @@ impl HttpVersion {
 	/// 	println!("{}", version); // Prints "HTTP/1.1" in the console
 	/// }
 	/// ```
-	pub fn new(version: &str) -> Option<Self> {
+	pub fn new<S>(version: S) -> Option<Self> where S: Into<String> {
+		let version = version.into();
+
 		if version.len() >= 5 {
 			if &version[0..4] == "HTTP" && &version[4..5] == "/" {
 				let version_split = &mut version[5..].split(".");
@@ -68,8 +70,10 @@ pub struct HttpHeader {
 }
 
 impl HttpHeader {
-	/// Parses a [`&str`] in the following format: "{header name}: {header value}" into a [`HttpHeader`]
-	pub fn new(header: &str) -> Option<Self> {
+	/// Parses a [`&str`] or [`String`] in the following format: "{header name}: {header value}" into a [`HttpHeader`]
+	pub fn new<S>(header: S) -> Option<Self> where S: Into<String> {
+		let header = header.into();
+
 		let Some((name, value)) = header.split_once(": ") else {
 			return None;
 		};
@@ -97,7 +101,7 @@ pub struct HttpTarget {
 }
 
 impl HttpTarget {
-	/// Parses any struct that implements the [`Into`] trait for [`String`] into a String, then parses that String into a [`HttpTarget`]
+	/// Parses a [`&str`] or [`String`] into a [`HttpTarget`]
 	pub fn new<S>(target: S) -> Self where S: Into<String> {
 		let target_string: String = Self::decode_url(target.into());
 

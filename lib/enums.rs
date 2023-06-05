@@ -95,7 +95,7 @@ pub enum HttpMethod {
 
 impl HttpMethod {
 	
-	/// Returns an [`Option`] containing [`HttpMethod`] by passing a [`&str`] corresponding to a HTTP method
+	/// Returns an [`Option`] containing [`HttpMethod`] by passing a [`&str`] or [`String`] corresponding to a HTTP method
 	/// 
 	/// If the method provided is a valid HTTP method, this function will evaluate to [`Some`] containing [`Self`]
 	/// 
@@ -111,8 +111,8 @@ impl HttpMethod {
 	/// 	assert_eq!(method, Some(HttpMethod::GET));
 	/// }
 	/// ```
-	pub fn new(method: &str) -> Option<Self> {
-		match method {
+	pub fn new<S>(method: S) -> Option<Self> where S: Into<String> {
+		match method.into().as_str() {
 			"GET" => Some(Self::GET),
 			"HEAD" => Some(Self::HEAD),
 			"POST" => Some(Self::POST),
