@@ -14,14 +14,14 @@ pub use structs::*;
 
 const VERSION: &str = "HTTP/1.1";
 
-enum HandlerHttpMethod {
+pub enum HandlerHttpMethod {
 	Specific(HttpMethod),
 	Any
 }
 
-type HandlerCallback = fn(HttpRequest, HttpResponse);
+pub type HandlerCallback = fn(HttpRequest, HttpResponse);
 
-type Handler = (HandlerHttpMethod, HandlerCallback);
+pub type Handler = (HandlerHttpMethod, HandlerCallback);
 
 pub struct HttpServer {
 	pub hostname: String,
