@@ -14,23 +14,34 @@ pub use structs::*;
 
 const VERSION: &str = "HTTP/1.1";
 
+/// A custom HTTP method struct that extends [`HttpMethod`].
+/// 
+/// It include an `Any` field to allow the server to process a [`HttpRequest`] of any [`HttpMethod`]
 pub enum HandlerHttpMethod {
 	Specific(HttpMethod),
 	Any
 }
 
+/// The type of the callback function of a [`Handler`]
 pub type HandlerCallback = fn(HttpRequest, HttpResponse);
 
+/// The type of a request handler
 pub type Handler = (HandlerHttpMethod, HandlerCallback);
 
+/// The "heart" of the module; the server struct
+/// 
+/// It does everything: process requests, pass them to handlers, reject them if they are malformed
 pub struct HttpServer {
+	/// The hostname the server is listening to for requests
 	pub hostname: String,
+	/// The port the server is listening for requests
 	pub port: u16,
 
 	handlers: HashMap<String, Vec<Handler>>
 }
 
 impl HttpServer {
+	/// Initialize a [`HttpServer`] by passing a hostname and a port number
 	pub fn new<S, N>(hostname: S, port:N) -> Self where S: Into<String>, N: Into<u16> {
 		Self {
 			hostname: hostname.into(),
@@ -40,6 +51,7 @@ impl HttpServer {
 		}
 	}
 
+	/// Start the server and make it process incoming connections
 	pub fn start(&self, callback: fn()) {// Initiate a TCP Listener at localhost port 2300 (port and IP address are subject to change)
 		let listener = TcpListener::bind(format!("{}:{}", self.hostname, self.port)).unwrap_or_else(|err| {
 			eprintln!("Couldn't initiate TCP server. Error message: {}", err);
@@ -62,26 +74,32 @@ impl HttpServer {
 	}
 	
 
+	/// Append a function handler that will be called on any request in a specific path
 	pub fn on<S>(&mut self, path: S, handler: HandlerCallback) where S: Into<String> {
 		self.append_handler(path.into(), HandlerHttpMethod::Any, handler);
 	}
 
+	/// Same as the [`on()`](`HttpServer::on()`) function, but processes only GET requests
 	pub fn on_get<S>(&mut self, path: S, handler: HandlerCallback) where S: Into<String> {
 		self.append_handler(path.into(), HandlerHttpMethod::Specific(HttpMethod::GET), handler);
 	}
 
+	/// Same as the [`on()`](`HttpServer::on()`) function, but processes only HEAD requests
 	pub fn on_head<S>(&mut self, path: S, handler: HandlerCallback) where S: Into<String> {
 		self.append_handler(path.into(), HandlerHttpMethod::Specific(HttpMethod::HEAD), handler);
 	}
 
+	/// Same as the [`on()`](`HttpServer::on()`) function, but processes only POST requests
 	pub fn on_post<S>(&mut self, path: S, handler: HandlerCallback) where S: Into<String> {
 		self.append_handler(path.into(), HandlerHttpMethod::Specific(HttpMethod::POST), handler);
 	}
 
+	/// Same as the [`on()`](`HttpServer::on()`) function, but processes only PUT requests
 	pub fn on_put<S>(&mut self, path: S, handler: HandlerCallback) where S: Into<String> {
 		self.append_handler(path.into(), HandlerHttpMethod::Specific(HttpMethod::PUT), handler);
 	}
 
+	/// Same as the [`on()`](`HttpServer::on()`) function, but processes only DELETE requests
 	pub fn on_delete<S>(&mut self, path: S, handler: HandlerCallback) where S: Into<String> {
 		self.append_handler(path.into(), HandlerHttpMethod::Specific(HttpMethod::DELETE), handler);
 	}
@@ -165,13 +183,16 @@ impl HttpServer {
 	}
 }
 
+/// A struct representing a HTTP connection between a client and the server
 pub struct HttpConnection {
+	/// The address of the peer client (if known)
 	pub peer_address: io::Result<SocketAddr>,
 
 	stream: TcpStream
 }
 
 impl HttpConnection {
+	/// Create a new [`HttpConnection`] from a [`TcpStream`]
 	pub fn new(stream: TcpStream) -> Self {
 		// Obtain peer address (if possible) and log it to stdout
 		let peer_address = stream.peer_addr();
@@ -188,7 +209,9 @@ impl HttpConnection {
 		}
 	}
 
-	/// Note: the `HttpConnection` struct shouldn't be used after this function returns
+	/// Terminates the connection between the client and the server
+	/// 
+	/// Note: the [`HttpConnection`] struct shouldn't be used after this function returns
 	pub fn terminate_connection(&self) {
 		loop {
 			match self.stream.shutdown(Shutdown::Both) {
@@ -199,16 +222,22 @@ impl HttpConnection {
 	}
 }
 
+/// A HTTP request
 #[derive(Clone)]
 pub struct HttpRequest {
+	/// The request's method
 	pub method: HttpMethod,
+	/// The target URL of the method
 	pub target: HttpTarget,
+	/// The HTTP version the client supports
 	pub version: HttpVersion,
 
+	/// A Vec containing a list of the headers of the [`HttpRequest`]
 	pub headers: Vec<HttpHeader>,
 }
 
 impl HttpRequest {
+	/// Create a new [`HttpRequest`] from a [`HttpConnection`]
 	pub fn new(parent: &mut HttpConnection) -> Option<Self> {
 		// Begin by reading the first line
 		let first_line = read_line(&mut parent.stream);
@@ -274,16 +303,21 @@ impl HttpRequest {
 	}
 }
 
+/// A HTTP response for the server to reply to the client
 pub struct HttpResponse<'s> {
 	parent: &'s mut HttpConnection,
 
+	/// The HTTP status code of the response
 	pub status: HttpStatus,
+	/// The HTTP version of the response
 	pub version: HttpVersion,
 
+	/// A Vec containing the headers of the response
 	pub headers: Vec<HttpHeader>,
 }
 
 impl<'s> HttpResponse<'s> {
+	/// Create a new [`HttpResponse`]
 	pub fn new(parent: &'s mut HttpConnection) -> Self {
 		Self {
 			parent,
@@ -294,10 +328,12 @@ impl<'s> HttpResponse<'s> {
 	}
 
 
+	/// CHange the [`HttpStatus`] of the response
 	pub fn status(&mut self, status: HttpStatus) {
 		self.status = status;
 	}
 
+	/// Send the response along with a message (consumes the response)
 	pub fn send<S>(self, message: S) where S: Into<String> {
 		let message: String = message.into();
 
@@ -319,6 +355,7 @@ impl<'s> HttpResponse<'s> {
 		self.parent.stream.write(format!("\r\n{}", message).as_bytes()).unwrap();
 	}
 
+	/// Send an empty response (consumes it)
 	pub fn end(self) {
 		// Basically send an empty response
 		self.send("");
