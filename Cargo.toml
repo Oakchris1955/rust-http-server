@@ -1,7 +1,17 @@
 [package]
-name = "rust-http-server"
+name = "oak-http-server"
 version = "0.1.0"
 edition = "2021"
+
+authors = ["Oakchris1955"]
+description = "Yet another HTTP server library written in Rust"
+readme = "README.md"
+repository = "https://github.com/Oakchris1955/rust-http-server/"
+license = "MIT"
+
+keywords = ["http", "server", "request", "response"]
+
+exclude = ["/examples"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
