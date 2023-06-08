@@ -1,4 +1,4 @@
-use std::fmt;
+use std::{collections::HashMap, fmt};
 
 /// The HTTP version of a request or a response
 #[derive(PartialEq, Clone)]
@@ -99,8 +99,8 @@ impl fmt::Display for HttpHeader {
 pub struct HttpTarget {
     /// Stores the URL path, according to RFC 3986
     pub absolute_path: String,
-    /// A Vector of [`QueryParameter`]s (query is defined in RFC 3986 as well)
-    pub queries: Vec<QueryParameter>,
+    /// A HashMap with a String key representing the query value and a String value representing the query value (query is defined in RFC 3986 as well)
+    pub queries: HashMap<String, String>,
 }
 
 impl HttpTarget {
@@ -115,17 +115,14 @@ impl HttpTarget {
             .split_once('?')
             .unwrap_or((&target_string, ""));
 
-        let mut queries = Vec::new();
+        let mut queries = HashMap::new();
 
         if !queries_str.is_empty() {
             let queries_split = queries_str.split("&");
 
             for query_str in queries_split {
                 if let Some((name, value)) = query_str.split_once("=") {
-                    queries.push(QueryParameter {
-                        name: name.to_string(),
-                        value: value.to_string(),
-                    })
+                    queries.insert(name.to_string(), value.to_string());
                 }
             }
         }
@@ -175,12 +172,7 @@ impl fmt::Display for HttpTarget {
             let mut queries_string = self
                 .queries
                 .iter()
-                .map(|query| {
-                    let mut query_string = query.to_string();
-                    query_string.push('&');
-
-                    query_string
-                })
+                .map(|(name, value)| format!("{}: {}&", name, value))
                 .collect::<String>();
 
             if !queries_string.is_empty() {
@@ -190,18 +182,5 @@ impl fmt::Display for HttpTarget {
 
             queries_string
         })
-    }
-}
-
-/// Represents a query parameter (check RFC 3986 for more info)
-#[derive(Debug, Clone)]
-pub struct QueryParameter {
-    pub name: String,
-    pub value: String,
-}
-
-impl fmt::Display for QueryParameter {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}{}", self.name, self.value)
     }
 }

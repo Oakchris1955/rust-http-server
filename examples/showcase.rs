@@ -12,15 +12,17 @@ fn main() {
                 .target
                 .queries
                 .iter()
-                .map(|x| x.to_string())
+                .map(|(name, value)| format!("{}: {}\n", name, value))
                 .collect::<String>()
         ))
     });
 
     server.on_get("/add", |request, mut response| {
         // Initialize variables to store integers
-        let mut first: Option<usize> = None;
-        let mut second: Option<usize> = None;
+        let mut first: usize = 0;
+        let mut second: usize = 0;
+
+        let mut success = true;
 
         // Create a slice and a function to correctly parse query arguments to the variables
         let variables_slice = (&["first", "second"], &mut [&mut first, &mut second]);
@@ -32,30 +34,31 @@ fn main() {
             }
         }
 
-        // Loop through each query and if a valid argument is found, put its value into a variable
-        for query in request.target.queries {
-            match query.name.as_str() {
-                "first" | "second" => convert_to_usize(
-                    variables_slice.1[variables_slice
-                        .0
-                        .iter()
-                        .position(|x| &query.name == x)
-                        .unwrap()],
-                    query.value,
-                ),
-                _ => (),
+        // For each query we are looking for, check if it exists and attempt to parse it into a usize
+        // In case an error occurs, immediately break the loop and execute fail code
+        for (&name, reference) in variables_slice.0.iter().zip(variables_slice.1.iter_mut()) {
+            if let Some(raw_value) = request.target.queries.get(name) {
+                if let Ok(parsed_value) = raw_value.parse::<usize>() {
+                    **reference = parsed_value
+                } else {
+                    success = false;
+                    break;
+                }
+            } else {
+                success = false;
+                break;
             }
         }
 
-        // If both variables have some value, add them together and return them
-        if let (Some(first_num), Some(second_num)) = (first, second) {
-            response.send((first_num + second_num).to_string());
-
-        // Otherwise, respond with a Bad Request (400) HTTP code
-        } else {
+        // If there was an error parsing or finding the query parameters, respond with a 400 status code and return
+        if !success {
             response.status(HttpStatus::BadRequest);
             response.send("Error while parsing query arguments \"first\" and \"second\"");
+            return;
         }
+
+        // Add both variables together and return them
+        response.send((first + second).to_string());
     });
 
     server.start(|| {
