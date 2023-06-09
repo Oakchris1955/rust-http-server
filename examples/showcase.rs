@@ -1,10 +1,10 @@
-use oak_http_server::{HttpServer, HttpStatus};
+use oak_http_server::{Server, Status};
 
 fn main() {
     let hostname = "localhost";
     let port: u16 = 2300;
 
-    let mut server = HttpServer::new(hostname, port);
+    let mut server = Server::new(hostname, port);
     server.on("/test", |request, response| {
         response.send(format!(
             "Your current query options are:\n{}",
@@ -52,7 +52,7 @@ fn main() {
 
         // If there was an error parsing or finding the query parameters, respond with a 400 status code and return
         if !success {
-            response.status(HttpStatus::BadRequest);
+            response.status(Status::BadRequest);
             response.send("Error while parsing query arguments \"first\" and \"second\"");
             return;
         }

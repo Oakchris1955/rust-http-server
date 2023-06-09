@@ -14,24 +14,24 @@ pub use structs::*;
 
 const VERSION: &str = "HTTP/1.1";
 
-/// A custom HTTP method struct that extends [`HttpMethod`].
+/// A custom HTTP method struct that extends [`Method`].
 ///
-/// It include an `Any` field to allow the server to process a [`HttpRequest`] of any [`HttpMethod`]
-pub enum HandlerHttpMethod {
-    Specific(HttpMethod),
+/// It include an `Any` field to allow the server to process a [`Request`] of any [`Method`]
+pub enum HandlerMethod {
+    Specific(Method),
     Any,
 }
 
 /// The type of the callback function of a [`Handler`]
-pub type HandlerCallback = fn(HttpRequest, HttpResponse);
+pub type HandlerCallback = fn(Request, Response);
 
 /// The type of a request handler
-pub type Handler = (HandlerHttpMethod, HandlerCallback);
+pub type Handler = (HandlerMethod, HandlerCallback);
 
 /// The "heart" of the module; the server struct
 ///
 /// It does everything: process requests, pass them to handlers, reject them if they are malformed
-pub struct HttpServer {
+pub struct Server {
     /// The hostname the server is listening to for requests
     pub hostname: String,
     /// The port the server is listening for requests
@@ -40,8 +40,8 @@ pub struct HttpServer {
     handlers: HashMap<String, Vec<Handler>>,
 }
 
-impl HttpServer {
-    /// Initialize a [`HttpServer`] by passing a hostname and a port number
+impl Server {
+    /// Initialize a [`Server`] by passing a hostname and a port number
     pub fn new<S, N>(hostname: S, port: N) -> Self
     where
         S: Into<String>,
@@ -84,75 +84,54 @@ impl HttpServer {
     where
         S: Into<String>,
     {
-        self.append_handler(path.into(), HandlerHttpMethod::Any, handler);
+        self.append_handler(path.into(), HandlerMethod::Any, handler);
     }
 
-    /// Same as the [`on()`](`HttpServer::on()`) function, but processes only GET requests
+    /// Same as the [`on()`](`Server::on()`) function, but processes only GET requests
     pub fn on_get<S>(&mut self, path: S, handler: HandlerCallback)
     where
         S: Into<String>,
     {
-        self.append_handler(
-            path.into(),
-            HandlerHttpMethod::Specific(HttpMethod::GET),
-            handler,
-        );
+        self.append_handler(path.into(), HandlerMethod::Specific(Method::GET), handler);
     }
 
-    /// Same as the [`on()`](`HttpServer::on()`) function, but processes only HEAD requests
+    /// Same as the [`on()`](`Server::on()`) function, but processes only HEAD requests
     pub fn on_head<S>(&mut self, path: S, handler: HandlerCallback)
     where
         S: Into<String>,
     {
-        self.append_handler(
-            path.into(),
-            HandlerHttpMethod::Specific(HttpMethod::HEAD),
-            handler,
-        );
+        self.append_handler(path.into(), HandlerMethod::Specific(Method::HEAD), handler);
     }
 
-    /// Same as the [`on()`](`HttpServer::on()`) function, but processes only POST requests
+    /// Same as the [`on()`](`Server::on()`) function, but processes only POST requests
     pub fn on_post<S>(&mut self, path: S, handler: HandlerCallback)
     where
         S: Into<String>,
     {
-        self.append_handler(
-            path.into(),
-            HandlerHttpMethod::Specific(HttpMethod::POST),
-            handler,
-        );
+        self.append_handler(path.into(), HandlerMethod::Specific(Method::POST), handler);
     }
 
-    /// Same as the [`on()`](`HttpServer::on()`) function, but processes only PUT requests
+    /// Same as the [`on()`](`Server::on()`) function, but processes only PUT requests
     pub fn on_put<S>(&mut self, path: S, handler: HandlerCallback)
     where
         S: Into<String>,
     {
-        self.append_handler(
-            path.into(),
-            HandlerHttpMethod::Specific(HttpMethod::PUT),
-            handler,
-        );
+        self.append_handler(path.into(), HandlerMethod::Specific(Method::PUT), handler);
     }
 
-    /// Same as the [`on()`](`HttpServer::on()`) function, but processes only DELETE requests
+    /// Same as the [`on()`](`Server::on()`) function, but processes only DELETE requests
     pub fn on_delete<S>(&mut self, path: S, handler: HandlerCallback)
     where
         S: Into<String>,
     {
         self.append_handler(
             path.into(),
-            HandlerHttpMethod::Specific(HttpMethod::DELETE),
+            HandlerMethod::Specific(Method::DELETE),
             handler,
         );
     }
 
-    fn append_handler(
-        &mut self,
-        path: String,
-        method: HandlerHttpMethod,
-        handler: HandlerCallback,
-    ) {
+    fn append_handler(&mut self, path: String, method: HandlerMethod, handler: HandlerCallback) {
         match self.handlers.get_mut(&path) {
             Some(handlers) => {
                 handlers.push((method, handler));
@@ -164,11 +143,11 @@ impl HttpServer {
     }
 
     fn handle_connection(&self, stream: TcpStream) {
-        let mut connection = HttpConnection::new(stream);
+        let mut connection = Connection::new(stream);
 
         let mut connection_open = true;
         while connection_open {
-            let request = match HttpRequest::new(&mut connection) {
+            let request = match Request::new(&mut connection) {
                 Some(value) => value,
                 None => {
                     eprintln!("Couldn't create new request for connection. Dropping connection...");
@@ -176,24 +155,24 @@ impl HttpServer {
                 }
             };
 
-            // Create a HttpResponse beforehand that will be used in case an error occurs
-            let mut err_response = HttpResponse::new(&mut connection);
+            // Create a HTTP response beforehand that will be used in case an error occurs
+            let mut err_response = Response::new(&mut connection);
 
             // Before responding, check if the HTTP version of the request is supported (HTTP/1.1)
-            if request.version != HttpVersion::new(VERSION).unwrap() {
+            if request.version != Version::new(VERSION).unwrap() {
                 eprintln!(
                     "Expected HTTP version {}, found {}. Dropping connection...",
                     VERSION, request.version
                 );
-                err_response.status(HttpStatus::new(400).unwrap());
+                err_response.status(Status::new(400).unwrap());
                 err_response.end();
                 break;
             }
 
             // Then check if a `Host` was sent, else respond with a 400 status code
-            if request.version != HttpVersion::new(VERSION).unwrap() {
+            if request.version != Version::new(VERSION).unwrap() {
                 eprintln!("Expected 'Host' header, found nothing. Dropping connection...");
-                err_response.status(HttpStatus::new(400).unwrap());
+                err_response.status(Status::new(400).unwrap());
                 err_response.end();
                 break;
             }
@@ -213,19 +192,19 @@ impl HttpServer {
             if let Some(handlers) = self.handlers.get(&request.target.absolute_path) {
                 for handler in handlers {
                     match &handler.0 {
-                        HandlerHttpMethod::Specific(method) => {
+                        HandlerMethod::Specific(method) => {
                             if request.method == *method {
-                                (handler.1)(request.clone(), HttpResponse::new(&mut connection))
+                                (handler.1)(request.clone(), Response::new(&mut connection))
                             }
                         }
-                        HandlerHttpMethod::Any => {
-                            (handler.1)(request.clone(), HttpResponse::new(&mut connection))
+                        HandlerMethod::Any => {
+                            (handler.1)(request.clone(), Response::new(&mut connection))
                         }
                     }
                 }
             } else {
                 // Otherwise, respond with a HTTP 404 Not Found status
-                err_response.status(HttpStatus::new(404).unwrap());
+                err_response.status(Status::new(404).unwrap());
                 err_response.end();
                 break;
             }
@@ -236,15 +215,15 @@ impl HttpServer {
 }
 
 /// A struct representing a HTTP connection between a client and the server
-pub struct HttpConnection {
+pub struct Connection {
     /// The address of the peer client (if known)
     pub peer_address: io::Result<SocketAddr>,
 
     stream: TcpStream,
 }
 
-impl HttpConnection {
-    /// Create a new [`HttpConnection`] from a [`TcpStream`]
+impl Connection {
+    /// Create a new [`Connection`] from a [`TcpStream`]
     pub fn new(stream: TcpStream) -> Self {
         // Obtain peer address (if possible) and log it to stdout
         let peer_address = stream.peer_addr();
@@ -263,7 +242,7 @@ impl HttpConnection {
 
     /// Terminates the connection between the client and the server
     ///
-    /// Note: the [`HttpConnection`] struct shouldn't be used after this function returns
+    /// Note: the [`Connection`] struct shouldn't be used after this function returns
     pub fn terminate_connection(&self) {
         loop {
             match self.stream.shutdown(Shutdown::Both) {
@@ -276,56 +255,56 @@ impl HttpConnection {
 
 /// A HTTP request
 #[derive(Clone)]
-pub struct HttpRequest {
+pub struct Request {
     /// The request's method
-    pub method: HttpMethod,
+    pub method: Method,
     /// The target URL of the method
-    pub target: HttpTarget,
+    pub target: Target,
     /// The HTTP version the client supports
-    pub version: HttpVersion,
+    pub version: Version,
 
-    /// A Vec containing a list of the headers of the [`HttpRequest`]
-    pub headers: Vec<HttpHeader>,
+    /// A Vec containing a list of the headers of the [`Request`]
+    pub headers: Vec<Header>,
 }
 
-impl HttpRequest {
-    /// Create a new [`HttpRequest`] from a [`HttpConnection`]
-    pub fn new(parent: &mut HttpConnection) -> Option<Self> {
+impl Request {
+    /// Create a new [`Request`] from a [`Connection`]
+    pub fn new(parent: &mut Connection) -> Option<Self> {
         // Begin by reading the first line
         let first_line = read_line(&mut parent.stream);
         // Then split it by whitespace
         let mut splitted_first_line = first_line.split_whitespace();
 
-        // Create a HttpResponse beforehand that will be used in case an error occurs
-        let mut err_response = HttpResponse::new(parent);
+        // Create a HTTP response beforehand that will be used in case an error occurs
+        let mut err_response = Response::new(parent);
 
         // Check if the resulting slices aren't three in number (as they should be)
         if splitted_first_line.clone().count() != 3 {
             // If yes, print an error message to stderr and immediately terminate connection
             eprintln!("Invalid HTTP request detected. Dropping connection...");
-            err_response.status(HttpStatus::new(400).unwrap());
+            err_response.status(Status::new(400).unwrap());
             err_response.end();
             return None;
         }
 
         // Else, start obtaining the HTTP method, target and version, terminating the connection in case of errors
-        let Some(method) = HttpMethod::new(splitted_first_line.next().unwrap()) else {
+        let Some(method) = Method::new(splitted_first_line.next().unwrap()) else {
 			eprintln!("Invalid HTTP method detected. Dropping connection...");
-			err_response.status(HttpStatus::new(501).unwrap());
+			err_response.status(Status::new(501).unwrap());
 			err_response.end();
 			return None;
 		};
-        let target = HttpTarget::new(splitted_first_line.next().unwrap());
-        // Note: a HttpVersion structs will only check if the HTTP version is in the format "HTTP/{num}.{num}" and won't check if the major and minor revisions of the HTTP protocol exist. This check will occur later on our code
-        let Some(http_version) = HttpVersion::new(splitted_first_line.next().unwrap()) else {
+        let target = Target::new(splitted_first_line.next().unwrap());
+        // Note: a HTTP version struct will only check if the HTTP version is in the format "HTTP/{num}.{num}" and won't check if the major and minor revisions of the HTTP protocol exist. This check will occur later on our code
+        let Some(http_version) = Version::new(splitted_first_line.next().unwrap()) else {
 			eprintln!("Invalid HTTP version detected. Dropping connection...");
-			err_response.status(HttpStatus::new(400).unwrap());
+			err_response.status(Status::new(400).unwrap());
 			err_response.end();
 			return None;
 		};
 
         // Create a variable for storing HTTP headers
-        let mut headers: Vec<HttpHeader> = Vec::new();
+        let mut headers: Vec<Header> = Vec::new();
 
         // Obtain available HTTP headers
         loop {
@@ -335,7 +314,7 @@ impl HttpRequest {
                 break;
             }
 
-            let Some(header) = HttpHeader::new(&line) else {
+            let Some(header) = Header::new(&line) else {
 				eprintln!("Invalid HTTP header syntax detected. Dropping connection...");
 				return None;
 			};
@@ -353,31 +332,31 @@ impl HttpRequest {
 }
 
 /// A HTTP response for the server to reply to the client
-pub struct HttpResponse<'s> {
-    parent: &'s mut HttpConnection,
+pub struct Response<'s> {
+    parent: &'s mut Connection,
 
     /// The HTTP status code of the response
-    pub status: HttpStatus,
+    pub status: Status,
     /// The HTTP version of the response
-    pub version: HttpVersion,
+    pub version: Version,
 
     /// A Vec containing the headers of the response
-    pub headers: Vec<HttpHeader>,
+    pub headers: Vec<Header>,
 }
 
-impl<'s> HttpResponse<'s> {
-    /// Create a new [`HttpResponse`]
-    pub fn new(parent: &'s mut HttpConnection) -> Self {
+impl<'s> Response<'s> {
+    /// Create a new [`Response`]
+    pub fn new(parent: &'s mut Connection) -> Self {
         Self {
             parent,
-            status: HttpStatus::new(200).unwrap(),
-            version: HttpVersion::new(VERSION).unwrap(),
+            status: Status::new(200).unwrap(),
+            version: Version::new(VERSION).unwrap(),
             headers: Vec::new(),
         }
     }
 
-    /// CHange the [`HttpStatus`] of the response
-    pub fn status(&mut self, status: HttpStatus) {
+    /// CHange the [`Status`] of the response
+    pub fn status(&mut self, status: Status) {
         self.status = status;
     }
 

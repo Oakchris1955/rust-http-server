@@ -2,23 +2,23 @@ use std::{collections::HashMap, fmt};
 
 /// The HTTP version of a request or a response
 #[derive(PartialEq, Clone)]
-pub struct HttpVersion {
+pub struct Version {
     pub major: usize,
     pub minor: usize,
 }
 
-impl HttpVersion {
-    /// Initialize a [`HttpVersion`] by passing a [`&str`] or [`String`] to it in the format `HTTP/{major}.{minor}`. The corresponding numbers `major` and `minor` represent a HTTP version and are stored in the struct's fields.
+impl Version {
+    /// Initialize a [`Version`] by passing a [`&str`] or [`String`] to it in the format `HTTP/{major}.{minor}`. The corresponding numbers `major` and `minor` represent a HTTP version and are stored in the struct's fields.
     ///
-    /// If for whatever reason this function fails to parse the [`&str`] provided into a [`HttpVersion`], it will return [`None`].
+    /// If for whatever reason this function fails to parse the [`&str`] provided into a [`Version`], it will return [`None`].
     ///
-    /// If the [`&str`] provided is parsed successfully, then the function will return a [`Some`] value containing a [`HttpVersion`] struct
+    /// If the [`&str`] provided is parsed successfully, then the function will return a [`Some`] value containing a [`Version`] struct
     ///
     /// # Example
     ///
     /// ```
     /// fn main() {
-    /// 	let version = HttpVersion::new("HTTP/1.1").unwrap(); // Unwrap the `Some` value the `new` function returns
+    /// 	let version = Version::new("HTTP/1.1").unwrap(); // Unwrap the `Some` value the `new` function returns
     /// 	println!("{}", version); // Prints "HTTP/1.1" in the console
     /// }
     /// ```
@@ -56,7 +56,7 @@ impl HttpVersion {
     }
 }
 
-impl fmt::Display for HttpVersion {
+impl fmt::Display for Version {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "HTTP/{}.{}", self.major, self.minor)
     }
@@ -64,13 +64,13 @@ impl fmt::Display for HttpVersion {
 
 /// Represents a HTTP header
 #[derive(Clone)]
-pub struct HttpHeader {
+pub struct Header {
     pub name: String,
     pub value: String,
 }
 
-impl HttpHeader {
-    /// Parses a [`&str`] or [`String`] in the following format: "{header name}: {header value}" into a [`HttpHeader`]
+impl Header {
+    /// Parses a [`&str`] or [`String`] in the following format: "{header name}: {header value}" into a [`Header`]
     pub fn new<S>(header: S) -> Option<Self>
     where
         S: Into<String>,
@@ -88,7 +88,7 @@ impl HttpHeader {
     }
 }
 
-impl fmt::Display for HttpHeader {
+impl fmt::Display for Header {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}: {}", self.name, self.value)
     }
@@ -96,15 +96,15 @@ impl fmt::Display for HttpHeader {
 
 /// Represents a HTTP URL (named `HttpTarget` for formality reasons)
 #[derive(Clone)]
-pub struct HttpTarget {
+pub struct Target {
     /// Stores the URL path, according to RFC 3986
     pub absolute_path: String,
     /// A HashMap with a String key representing the query value and a String value representing the query value (query is defined in RFC 3986 as well)
     pub queries: HashMap<String, String>,
 }
 
-impl HttpTarget {
-    /// Parses a [`&str`] or [`String`] into a [`HttpTarget`]
+impl Target {
+    /// Parses a [`&str`] or [`String`] into a [`Target`]
     pub fn new<S>(target: S) -> Self
     where
         S: Into<String>,
@@ -166,7 +166,7 @@ impl HttpTarget {
     }
 }
 
-impl fmt::Display for HttpTarget {
+impl fmt::Display for Target {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}{}", self.absolute_path, {
             let mut queries_string = self

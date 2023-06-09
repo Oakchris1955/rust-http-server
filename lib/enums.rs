@@ -1,9 +1,9 @@
 use std::fmt;
 
-/// A HTTP status to include in a [`HttpResponse`](crate::HttpResponse)
+/// A HTTP status to include in a [`Response`](crate::Response)
 #[derive(PartialEq)]
 #[non_exhaustive]
-pub enum HttpStatus {
+pub enum Status {
     /// `200 OK`
     OK,
     /// `201 Created`
@@ -24,8 +24,8 @@ pub enum HttpStatus {
     NotImplemented,
 }
 
-impl HttpStatus {
-    /// Returns an [`Option`] containing [`HttpStatus`] by passing a [`usize`] corresponding to the HTTP status code to it
+impl Status {
+    /// Returns an [`Option`] containing [`Status`] by passing a [`usize`] corresponding to the HTTP status code to it
     ///
     /// If the status provided is a valid HTTP status, this function will evaluate to [`Some`] containing [`Self`]
     ///
@@ -35,10 +35,10 @@ impl HttpStatus {
     ///
     /// ```
     /// fn main() {
-    /// 	// Generate a new HttpStatus instance (in our case, HttpStatus::OK)
-    /// 	let status: Option<HttpStatus> = HttpStatus::new(200);
+    /// 	// Generate a new HTTP Status instance (in our case, Status::OK)
+    /// 	let status: Option<HttpStatus> = Status::new(200);
     ///
-    /// 	assert_eq!(status, Some(HttpStatus::OK));
+    /// 	assert_eq!(status, Some(Status::OK));
     /// }
     /// ```
     pub fn new(status: usize) -> Option<Self> {
@@ -58,7 +58,7 @@ impl HttpStatus {
     }
 }
 
-impl fmt::Display for HttpStatus {
+impl fmt::Display for Status {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
@@ -82,7 +82,7 @@ impl fmt::Display for HttpStatus {
 /// A HTTP method that is provided by the client
 #[derive(PartialEq, Clone)]
 #[non_exhaustive]
-pub enum HttpMethod {
+pub enum Method {
     /// The `GET` method requests a representation of the specified resource.
     /// Requests using `GET` should only retrieve data.
     GET,
@@ -96,8 +96,8 @@ pub enum HttpMethod {
     DELETE,
 }
 
-impl HttpMethod {
-    /// Returns an [`Option`] containing [`HttpMethod`] by passing a [`&str`] or [`String`] corresponding to a HTTP method
+impl Method {
+    /// Returns an [`Option`] containing [`Method`] by passing a [`&str`] or [`String`] corresponding to a HTTP method
     ///
     /// If the method provided is a valid HTTP method, this function will evaluate to [`Some`] containing [`Self`]
     ///
@@ -107,10 +107,10 @@ impl HttpMethod {
     ///
     /// ```
     /// fn main() {
-    /// 	// Create a new HttpMethod instance (in our case, HttpMethod::GET)
-    /// 	let method: Option<HttpMethod> = HttpMethod::new("GET");
+    /// 	// Create a new HTTP Method instance (in our case, Method::GET)
+    /// 	let method: Option<Method> = Method::new("GET");
     ///
-    /// 	assert_eq!(method, Some(HttpMethod::GET));
+    /// 	assert_eq!(method, Some(Method::GET));
     /// }
     /// ```
     pub fn new<S>(method: S) -> Option<Self>
@@ -128,7 +128,7 @@ impl HttpMethod {
     }
 }
 
-impl fmt::Display for HttpMethod {
+impl fmt::Display for Method {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
