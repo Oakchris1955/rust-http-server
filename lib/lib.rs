@@ -16,8 +16,11 @@ const VERSION: &str = "HTTP/1.1";
 
 /// A custom HTTP method struct that extends [`Method`].
 ///
-/// It include an `Any` field to allow the server to process a [`Request`] of any [`Method`]
+/// It includes an `Any` field to allow the server to process a [`Request`] of any [`Method`]
+///
+/// There is also a `Directory` field so that the user can create custom URL parsers for a directory.
 pub enum HandlerMethod {
+    Directory,
     Specific(Method),
     Any,
 }
@@ -131,6 +134,14 @@ impl Server {
         );
     }
 
+    /// Append a directory handler that will be called on any request in a specific path
+    pub fn on_directory<S>(&mut self, path: S, handler: HandlerCallback)
+    where
+        S: Into<String>,
+    {
+        self.append_handler(path.into(), HandlerMethod::Directory, handler);
+    }
+
     fn append_handler(&mut self, path: String, method: HandlerMethod, handler: HandlerCallback) {
         match self.handlers.get_mut(&path) {
             Some(handlers) => {
@@ -146,12 +157,13 @@ impl Server {
         let mut connection = Connection::new(stream);
 
         let mut connection_open = true;
-        while connection_open {
-            let request = match Request::new(&mut connection) {
+
+        'connection_loop: while connection_open {
+            let mut request = match Request::new(&mut connection) {
                 Some(value) => value,
                 None => {
                     eprintln!("Couldn't create new request for connection. Dropping connection...");
-                    break;
+                    break 'connection_loop;
                 }
             };
 
@@ -166,7 +178,7 @@ impl Server {
                 );
                 err_response.status(Status::new(400).unwrap());
                 err_response.end();
-                break;
+                break 'connection_loop;
             }
 
             // Then check if a `Host` was sent, else respond with a 400 status code
@@ -174,7 +186,7 @@ impl Server {
                 eprintln!("Expected 'Host' header, found nothing. Dropping connection...");
                 err_response.status(Status::new(400).unwrap());
                 err_response.end();
-                break;
+                break 'connection_loop;
             }
 
             // Process headers and print them in while doing so
@@ -196,18 +208,51 @@ impl Server {
                             if request.method == *method {
                                 (handler.1)(request.clone(), Response::new(&mut connection))
                             }
+                            continue 'connection_loop;
                         }
                         HandlerMethod::Any => {
                             (handler.1)(request.clone(), Response::new(&mut connection))
+                            continue 'connection_loop;
                         }
+                        _ => (),
                     }
                 }
             } else {
-                // Otherwise, respond with a HTTP 404 Not Found status
-                err_response.status(Status::new(404).unwrap());
-                err_response.end();
-                break;
+                let full_url = request.target.full_url();
+                let mut path_sections = full_url.split("/");
+                path_sections.next();
+
+                let mut path_string = String::new();
+
+                for section in path_sections {
+                    path_string.push_str(&format!("/{}", section));
+
+                    if let Some(handlers) = self.handlers.get(&path_string) {
+                        if let Some(handler) = handlers
+                            .iter()
+                            .find(|handler| matches!(handler.0, HandlerMethod::Directory))
+                        {
+                            (request.target.target_path, request.target.relative_path) = (
+                                path_string.clone(),
+                                request
+                                    .target
+                                    .relative_path
+                                    .split_at(path_string.len())
+                                    .1
+                                    .to_string(),
+                            );
+
+                            (handler.1)(request, Response::new(&mut connection));
+                            continue 'connection_loop;
+                        }
+                    }
+                }
             }
+
+            // Otherwise, respond with a HTTP 404 Not Found status
+            err_response.status(Status::new(404).unwrap());
+            err_response.end();
+            break 'connection_loop;
         }
 
         connection.terminate_connection()
