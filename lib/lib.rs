@@ -189,7 +189,7 @@ impl Server {
             }
 
             // If everything is alright, check if an appropriate handler exists for this request
-            if let Some(handlers) = self.handlers.get(&request.target.absolute_path) {
+            if let Some(handlers) = self.handlers.get(&request.target.full_url()) {
                 for handler in handlers {
                     match &handler.0 {
                         HandlerMethod::Specific(method) => {

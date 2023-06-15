@@ -97,8 +97,10 @@ impl fmt::Display for Header {
 /// Represents a HTTP URL (named `HttpTarget` for formality reasons)
 #[derive(Clone)]
 pub struct Target {
-    /// Stores the URL path, according to RFC 3986
-    pub absolute_path: String,
+    /// Contains the path of the current handler (if unknown, will be empty)
+    pub target_path: String,
+    /// Contains the rest of the URL
+    pub relative_path: String,
     /// A HashMap with a String key representing the query value and a String value representing the query value (query is defined in RFC 3986 as well)
     pub queries: HashMap<String, String>,
 }
@@ -128,9 +130,15 @@ impl Target {
         }
 
         Self {
-            absolute_path: absolute_path.to_string(),
+            target_path: String::new(),
+            relative_path: absolute_path.to_string(),
             queries,
         }
+    }
+
+    /// Returns the URL path, according to RFC 3986
+    pub fn full_url(&self) -> String {
+        format!("{}{}", &self.target_path, &self.relative_path)
     }
 
     fn decode_url(encoded_url: String) -> String {
@@ -168,7 +176,7 @@ impl Target {
 
 impl fmt::Display for Target {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}{}", self.absolute_path, {
+        write!(f, "{}{}", self.full_url(), {
             let mut queries_string = self
                 .queries
                 .iter()
