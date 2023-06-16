@@ -20,7 +20,7 @@ const VERSION: &str = "HTTP/1.1";
 ///
 /// It includes an `Any` field to allow the server to process a [`Request`] of any [`Method`]
 ///
-/// There is also a `Directory` field so that the user can create custom URL parsers for a directory.
+/// There is also a `Directory` field so that the user can create custom URL parsers for a directory or use the ones provided by the library.
 pub enum HandlerMethod {
     Directory,
     Specific(Method),

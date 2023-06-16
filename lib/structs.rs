@@ -97,9 +97,12 @@ impl fmt::Display for Header {
 /// Represents a HTTP URL (named `HttpTarget` for formality reasons)
 #[derive(Clone)]
 pub struct Target {
-    /// Contains the path of the current handler (if unknown, will be empty)
+    /// Contains the path of the current handler (Empty by default. Modified by the server before being passed to a handler). Primarily used by directory handlers.
+    ///
+    /// For example, if a directory handler is assigned at path `\www\etc` and the client attempts to access `\www\etc\main.txt`,
+    /// this field's String's contents  will be `\www\etc` and the [relative path](Self::relative_path) will be equal to `\main.txt`
     pub target_path: String,
-    /// Contains the rest of the URL
+    /// Check the [target path](Self::target_path) documentation
     pub relative_path: String,
     /// A HashMap with a String key representing the query value and a String value representing the query value (query is defined in RFC 3986 as well)
     pub queries: HashMap<String, String>,
