@@ -208,12 +208,12 @@ impl Server {
                     match &handler.0 {
                         HandlerMethod::Specific(method) => {
                             if request.method == *method {
-                                (handler.1)(request.clone(), Response::new(&mut connection))
+                                (handler.1)(request, Response::new(&mut connection))
                             }
                             continue 'connection_loop;
                         }
                         HandlerMethod::Any => {
-                            (handler.1)(request.clone(), Response::new(&mut connection))
+                            (handler.1)(request, Response::new(&mut connection));
                             continue 'connection_loop;
                         }
                         _ => (),
