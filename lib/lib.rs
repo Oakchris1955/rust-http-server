@@ -9,6 +9,7 @@
 //! # Quick start
 //!
 //! ```
+//! # #[cfg(feature = "safe")]
 //! // Library imports
 //! use oak_http_server::{Server, Status};
 //!
@@ -39,7 +40,7 @@
 //!    // Start the HTTP server. The provided closure/callback function will be called
 //!    // when a connection listener has been successfully established.
 //!    // Once this function is run, the server will begin listening to incoming HTTP requests
-//!    # #[doc(cfg(not(test)))]
+//!    # #[cfg(not(test))]
 //!    server.start(|| {
 //!        println!("Successfully initiated server");
 //!    });
