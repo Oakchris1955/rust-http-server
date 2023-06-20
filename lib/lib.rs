@@ -1,3 +1,50 @@
+#![warn(missing_docs)]
+
+//! **Note:** The library is still in early Alpha/Beta
+//!
+//! A lightweight server library for the HTTP/1.1 protocol
+//!
+//! The aim of this crate is to create a library both easy to use and fast in intercepting incoming connections
+//!
+//! # Quick start
+//!
+//! ```
+//! // Library imports
+//! use oak_http_server::{Server, Status};
+//!
+//! fn main() {
+//!     // Save server hostname and port as variables
+//!     let hostname = "localhost";
+//!     let port: u16 = 2300;
+//!     
+//!     // Create a new HTTP server instance (must be mutable since appending handlers to the Server struct modifies its fields)
+//!     let mut server = Server::new(hostname, port);
+//!
+//!     // The following path handler responds to each response to the "/ping" path with "Pong!"
+//!     server.on("/ping", |_request, response| response.send("Pong!"));
+//!     
+//!     // The following path handler responds only to GET requests on the "\headers" path
+//!     // and returns a list of the headers supplied in the corresponding HTTP request
+//!     server.on_get("/headers", |request, response| {
+//!         response.send(format!(
+//!	            "Your browser sent the following headers with the request:\n{}",
+//!	            request
+//!	                .headers
+//!                 .iter()
+//!	                .map(|header| header.to_string() + "\n")
+//!	                .collect::<String>(),
+//!         ))
+//!     });
+//!
+//!    // Start the HTTP server. The provided closure/callback function will be called
+//!    // when a connection listener has been successfully established.
+//!    // Once this function is run, the server will begin listening to incoming HTTP requests
+//!    server.start(|| {
+//!        println!("Successfully initiated server");
+//!    });
+//! }
+//! ```
+
 use std::collections::HashMap;
 use std::io::{self, Write};
 use std::net::{Shutdown, SocketAddr, TcpListener, TcpStream};
@@ -22,8 +69,11 @@ const VERSION: &str = "HTTP/1.1";
 ///
 /// There is also a `Directory` field so that the user can create custom URL parsers for a directory or use the ones provided by the library.
 pub enum HandlerMethod {
+    /// Represents a directory handler. Will be run whether the user requests a target that is part of this directory. Also, it is the last handler type in terms of priority
     Directory,
+    /// A handler that will be run only when a specific [`Method`] is made at the corresponding target
     Specific(Method),
+    /// Like the [`Specific`] variant, but will run for any type of request
     Any,
 }
 

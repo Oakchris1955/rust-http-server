@@ -1,3 +1,5 @@
+//! Includes various handlers provided by the library
+
 use std::{fs, mem};
 
 use crate::{Request, Response};
