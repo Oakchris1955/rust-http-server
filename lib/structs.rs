@@ -3,7 +3,9 @@ use std::{collections::HashMap, fmt};
 /// The HTTP version of a request or a response
 #[derive(PartialEq, Clone)]
 pub struct Version {
+    /// The major revision number of the HTTP version
     pub major: usize,
+    /// The minor revision number of the HTTP version
     pub minor: usize,
 }
 
@@ -65,7 +67,9 @@ impl fmt::Display for Version {
 /// Represents a HTTP header
 #[derive(Clone)]
 pub struct Header {
+    /// The name of the header
     pub name: String,
+    /// The value of the header
     pub value: String,
 }
 

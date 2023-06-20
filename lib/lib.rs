@@ -69,8 +69,11 @@ const VERSION: &str = "HTTP/1.1";
 ///
 /// There is also a `Directory` field so that the user can create custom URL parsers for a directory or use the ones provided by the library.
 pub enum HandlerMethod {
+    /// Represents a directory handler. Will be run whether the user requests a target that is part of this directory. Also, it is the last handler type in terms of priority
     Directory,
+    /// A handler that will be run only when a specific [`Method`] is made at the corresponding target
     Specific(Method),
+    /// Like the [`Specific`] variant, but will run for any type of request
     Any,
 }
 
