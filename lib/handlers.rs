@@ -1,4 +1,4 @@
-//! Includes various handlers provided by the library
+/*//! Includes various handlers provided by the library
 
 use std::{fs, mem};
 
@@ -66,4 +66,4 @@ pub fn read_diff_dir(mut parent_dir: String) -> impl FnMut(Request, Response) {
     move |request: Request, response: Response| {
         read_file(mem::take(&mut parent_dir), request, response)
     }
-}
+}*/

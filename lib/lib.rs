@@ -61,7 +61,7 @@ pub use enums::*;
 mod structs;
 pub use structs::*;
 
-pub mod handlers;
+//pub mod handlers;
 
 const VERSION: &str = "HTTP/1.1";
 
