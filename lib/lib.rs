@@ -76,7 +76,7 @@ pub enum HandlerMethod {
     Directory,
     /// A handler that will be run only when a specific [`Method`] is made at the corresponding target
     Specific(Method),
-    /// Like the [`Specific`] variant, but will run for any type of request
+    /// Like the [`Specific`](HandlerMethod::Specific) variant, but will run for any type of request
     Any,
 }
 
