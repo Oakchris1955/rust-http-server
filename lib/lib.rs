@@ -9,6 +9,8 @@
 //! # Quick start
 //!
 //! ```
+//! # #[cfg(feature = "safe")]
+//! # extern crate oak_http_server;
 //! // Library imports
 //! use oak_http_server::{Server, Status};
 //!
@@ -39,6 +41,7 @@
 //!    // Start the HTTP server. The provided closure/callback function will be called
 //!    // when a connection listener has been successfully established.
 //!    // Once this function is run, the server will begin listening to incoming HTTP requests
+//!    # #[cfg(not)]
 //!    server.start(|| {
 //!        println!("Successfully initiated server");
 //!    });
@@ -59,7 +62,7 @@ pub use enums::*;
 mod structs;
 pub use structs::*;
 
-pub mod handlers;
+//pub mod handlers;
 
 const VERSION: &str = "HTTP/1.1";
 
@@ -73,7 +76,7 @@ pub enum HandlerMethod {
     Directory,
     /// A handler that will be run only when a specific [`Method`] is made at the corresponding target
     Specific(Method),
-    /// Like the [`Specific`] variant, but will run for any type of request
+    /// Like the [`Specific`](HandlerMethod::Specific) variant, but will run for any type of request
     Any,
 }
 

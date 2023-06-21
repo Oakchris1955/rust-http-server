@@ -19,6 +19,8 @@ impl Version {
     /// # Example
     ///
     /// ```
+    /// # use oak_http_server::Version;
+    ///
     /// fn main() {
     /// 	let version = Version::new("HTTP/1.1").unwrap(); // Unwrap the `Some` value the `new` function returns
     /// 	println!("{}", version); // Prints "HTTP/1.1" in the console

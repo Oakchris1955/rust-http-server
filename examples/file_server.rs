@@ -1,7 +1,7 @@
-use oak_http_server::{handlers::read_same_dir, Server};
+//use oak_http_server::{handlers::read_same_dir, Server};
 
 fn main() {
-    let hostname = "localhost";
+    /*let hostname = "localhost";
     let port: u16 = 2300;
 
     let mut server = Server::new(hostname, port);
@@ -10,5 +10,5 @@ fn main() {
 
     server.start(|| {
         println!("Started file server");
-    });
+    });*/
 }

@@ -1,7 +1,7 @@
 use std::fmt;
 
 /// A HTTP status to include in a [`Response`](crate::Response)
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug)]
 #[non_exhaustive]
 pub enum Status {
     /// `200 OK`
@@ -34,9 +34,11 @@ impl Status {
     /// # Example
     ///
     /// ```
+    /// # use oak_http_server::Status;
+    ///
     /// fn main() {
     /// 	// Generate a new HTTP Status instance (in our case, Status::OK)
-    /// 	let status: Option<HttpStatus> = Status::new(200);
+    /// 	let status: Option<Status> = Status::new(200);
     ///
     /// 	assert_eq!(status, Some(Status::OK));
     /// }
@@ -80,7 +82,7 @@ impl fmt::Display for Status {
 }
 
 /// A HTTP method that is provided by the client
-#[derive(PartialEq, Clone)]
+#[derive(PartialEq, Clone, Debug)]
 #[non_exhaustive]
 pub enum Method {
     /// The `GET` method requests a representation of the specified resource.
@@ -106,6 +108,8 @@ impl Method {
     /// # Example
     ///
     /// ```
+    /// # use oak_http_server::Method;
+    ///
     /// fn main() {
     /// 	// Create a new HTTP Method instance (in our case, Method::GET)
     /// 	let method: Option<Method> = Method::new("GET");
