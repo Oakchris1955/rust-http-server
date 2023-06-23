@@ -18,10 +18,8 @@ fn read_file(parent_dir: String, request: Request, mut response: Response) {
                 _ => Status::InternalError,
             };
 
-            let status_string = status.to_string();
-
             response.status(status);
-            response.send(status_string);
+            response.end();
         }
     }
 }
