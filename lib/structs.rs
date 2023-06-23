@@ -66,7 +66,7 @@ impl fmt::Display for Version {
     }
 }
 
-/// Represents a HTTP URL (named `HttpTarget` for formality reasons)
+/// Represents a HTTP URL (named [`Target`] for formality reasons)
 #[derive(Clone)]
 pub struct Target {
     /// Contains the path of the current handler (Empty by default. Modified by the server before being passed to a handler). Primarily used by directory handlers.
