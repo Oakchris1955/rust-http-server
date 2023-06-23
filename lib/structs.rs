@@ -66,40 +66,6 @@ impl fmt::Display for Version {
     }
 }
 
-/// Represents a HTTP header
-#[derive(Clone)]
-pub struct Header {
-    /// The name of the header
-    pub name: String,
-    /// The value of the header
-    pub value: String,
-}
-
-impl Header {
-    /// Parses a [`&str`] or [`String`] in the following format: "{header name}: {header value}" into a [`Header`]
-    pub fn new<S>(header: S) -> Option<Self>
-    where
-        S: Into<String>,
-    {
-        let header = header.into();
-
-        let Some((name, value)) = header.split_once(": ") else {
-			return None;
-		};
-
-        Some(Self {
-            name: name.to_string(),
-            value: value.to_string(),
-        })
-    }
-}
-
-impl fmt::Display for Header {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}: {}", self.name, self.value)
-    }
-}
-
 /// Represents a HTTP URL (named `HttpTarget` for formality reasons)
 #[derive(Clone)]
 pub struct Target {

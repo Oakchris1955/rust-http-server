@@ -33,7 +33,7 @@
 //!	            request
 //!	                .headers
 //!                 .iter()
-//!	                .map(|header| header.to_string() + "\n")
+//!	                .map(|(name, value)| format!("{}: {}\n", name, value))
 //!	                .collect::<String>(),
 //!         ))
 //!     });
@@ -256,9 +256,9 @@ impl Server {
             }
 
             // Process headers and print them in while doing so
-            for header in request.headers.iter() {
-                match header.name.as_str() {
-                    "Connection" => match header.value.as_str() {
+            for (name, value) in request.headers.iter() {
+                match name.as_str() {
+                    "Connection" => match value.as_str() {
                         "close" => connection_open = false,
                         _ => (),
                     },
@@ -374,8 +374,8 @@ pub struct Request {
     /// The HTTP version the client supports
     pub version: Version,
 
-    /// A Vec containing a list of the headers of the [`Request`]
-    pub headers: Vec<Header>,
+    /// A type alias of a Hashmap containing a list of the headers of the [`Request`]
+    pub headers: Headers,
 }
 
 impl Request {
@@ -415,7 +415,7 @@ impl Request {
 		};
 
         // Create a variable for storing HTTP headers
-        let mut headers: Vec<Header> = Vec::new();
+        let mut headers: Headers = Headers::new();
 
         // Obtain available HTTP headers
         loop {
@@ -425,12 +425,10 @@ impl Request {
                 break;
             }
 
-            let Some(header) = Header::new(&line) else {
-				eprintln!("Invalid HTTP header syntax detected. Dropping connection...");
-				return None;
-			};
-
-            headers.push(header);
+            if parse_header_line(&mut headers, line).is_none() {
+                eprintln!("Invalid HTTP header syntax detected. Dropping connection...");
+                return None;
+            };
         }
 
         Some(Self {
@@ -451,8 +449,8 @@ pub struct Response<'s> {
     /// The HTTP version of the response
     pub version: Version,
 
-    /// A Vec containing the headers of the response
-    pub headers: Vec<Header>,
+    /// A type alias of a Hashmap containing the headers of the response
+    pub headers: Headers,
 }
 
 impl<'s> Response<'s> {
@@ -462,7 +460,7 @@ impl<'s> Response<'s> {
             parent,
             status: Status::new(200).unwrap(),
             version: Version::new(VERSION).unwrap(),
-            headers: Vec::new(),
+            headers: Headers::new(),
         }
     }
 
@@ -491,10 +489,10 @@ impl<'s> Response<'s> {
             .unwrap();
 
         // Loop through each header and write them to connection stream
-        for header in &self.headers {
+        for (name, value) in &self.headers {
             self.parent
                 .stream
-                .write(format!("{}: {}\r\n", header.name, header.value).as_bytes())
+                .write(format!("{}: {}\r\n", name, value).as_bytes())
                 .unwrap();
         }
 
