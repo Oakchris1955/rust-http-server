@@ -3,7 +3,9 @@ use std::{collections::HashMap, fmt};
 /// The HTTP version of a request or a response
 #[derive(PartialEq, Clone)]
 pub struct Version {
+    /// The major revision number of the HTTP version
     pub major: usize,
+    /// The minor revision number of the HTTP version
     pub minor: usize,
 }
 
@@ -17,6 +19,8 @@ impl Version {
     /// # Example
     ///
     /// ```
+    /// # use oak_http_server::Version;
+    ///
     /// fn main() {
     /// 	let version = Version::new("HTTP/1.1").unwrap(); // Unwrap the `Some` value the `new` function returns
     /// 	println!("{}", version); // Prints "HTTP/1.1" in the console
@@ -62,43 +66,16 @@ impl fmt::Display for Version {
     }
 }
 
-/// Represents a HTTP header
-#[derive(Clone)]
-pub struct Header {
-    pub name: String,
-    pub value: String,
-}
-
-impl Header {
-    /// Parses a [`&str`] or [`String`] in the following format: "{header name}: {header value}" into a [`Header`]
-    pub fn new<S>(header: S) -> Option<Self>
-    where
-        S: Into<String>,
-    {
-        let header = header.into();
-
-        let Some((name, value)) = header.split_once(": ") else {
-			return None;
-		};
-
-        Some(Self {
-            name: name.to_string(),
-            value: value.to_string(),
-        })
-    }
-}
-
-impl fmt::Display for Header {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}: {}", self.name, self.value)
-    }
-}
-
-/// Represents a HTTP URL (named `HttpTarget` for formality reasons)
+/// Represents a HTTP URL (named [`Target`] for formality reasons)
 #[derive(Clone)]
 pub struct Target {
-    /// Stores the URL path, according to RFC 3986
-    pub absolute_path: String,
+    /// Contains the path of the current handler (Empty by default. Modified by the server before being passed to a handler). Primarily used by directory handlers.
+    ///
+    /// For example, if a directory handler is assigned at path `\www\etc` and the client attempts to access `\www\etc\main.txt`,
+    /// this field's String's contents  will be `\www\etc` and the [relative path](Self::relative_path) will be equal to `\main.txt`
+    pub target_path: String,
+    /// Check the [target path](Self::target_path) documentation
+    pub relative_path: String,
     /// A HashMap with a String key representing the query value and a String value representing the query value (query is defined in RFC 3986 as well)
     pub queries: HashMap<String, String>,
 }
@@ -128,9 +105,15 @@ impl Target {
         }
 
         Self {
-            absolute_path: absolute_path.to_string(),
+            target_path: String::new(),
+            relative_path: absolute_path.to_string(),
             queries,
         }
+    }
+
+    /// Returns the URL path, according to RFC 3986
+    pub fn full_url(&self) -> String {
+        format!("{}{}", &self.target_path, &self.relative_path)
     }
 
     fn decode_url(encoded_url: String) -> String {
@@ -168,7 +151,7 @@ impl Target {
 
 impl fmt::Display for Target {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}{}", self.absolute_path, {
+        write!(f, "{}{}", self.full_url(), {
             let mut queries_string = self
                 .queries
                 .iter()

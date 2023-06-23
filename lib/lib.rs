@@ -1,3 +1,53 @@
+#![warn(missing_docs)]
+
+//! **Note:** The library is still in early Alpha/Beta
+//!
+//! A lightweight server library for the HTTP/1.1 protocol
+//!
+//! The aim of this crate is to create a library both easy to use and fast in intercepting incoming connections
+//!
+//! # Quick start
+//!
+//! ```
+//! # #[cfg(feature = "safe")]
+//! # extern crate oak_http_server;
+//! // Library imports
+//! use oak_http_server::{Server, Status};
+//!
+//! fn main() {
+//!     // Save server hostname and port as variables
+//!     let hostname = "localhost";
+//!     let port: u16 = 2300;
+//!     
+//!     // Create a new HTTP server instance (must be mutable since appending handlers to the Server struct modifies its fields)
+//!     let mut server = Server::new(hostname, port);
+//!
+//!     // The following path handler responds to each response to the "/ping" path with "Pong!"
+//!     server.on("/ping", |_request, response| response.send("Pong!"));
+//!     
+//!     // The following path handler responds only to GET requests on the "\headers" path
+//!     // and returns a list of the headers supplied in the corresponding HTTP request
+//!     server.on_get("/headers", |request, response| {
+//!         response.send(format!(
+//!	            "Your browser sent the following headers with the request:\n{}",
+//!	            request
+//!	                .headers
+//!                 .iter()
+//!	                .map(|(name, value)| format!("{}: {}\n", name, value))
+//!	                .collect::<String>(),
+//!         ))
+//!     });
+//!
+//!    // Start the HTTP server. The provided closure/callback function will be called
+//!    // when a connection listener has been successfully established.
+//!    // Once this function is run, the server will begin listening to incoming HTTP requests
+//!    # #[cfg(not)]
+//!    server.start(|| {
+//!        println!("Successfully initiated server");
+//!    });
+//! }
+//! ```
+
 use std::collections::HashMap;
 use std::io::{self, Write};
 use std::net::{Shutdown, SocketAddr, TcpListener, TcpStream};
@@ -12,21 +62,29 @@ pub use enums::*;
 mod structs;
 pub use structs::*;
 
+pub mod handlers;
+
 const VERSION: &str = "HTTP/1.1";
 
 /// A custom HTTP method struct that extends [`Method`].
 ///
-/// It include an `Any` field to allow the server to process a [`Request`] of any [`Method`]
+/// It includes an `Any` field to allow the server to process a [`Request`] of any [`Method`]
+///
+/// There is also a `Directory` field so that the user can create custom URL parsers for a directory or use the ones provided by the library.
 pub enum HandlerMethod {
+    /// Represents a directory handler. Will be run whether the user requests a target that is part of this directory. Also, it is the last handler type in terms of priority
+    Directory,
+    /// A handler that will be run only when a specific [`Method`] is made at the corresponding target
     Specific(Method),
+    /// Like the [`Specific`](HandlerMethod::Specific) variant, but will run for any type of request
     Any,
 }
 
 /// The type of the callback function of a [`Handler`]
-pub type HandlerCallback = fn(Request, Response);
+pub type HandlerCallback = dyn Fn(Request, Response);
 
 /// The type of a request handler
-pub type Handler = (HandlerMethod, HandlerCallback);
+pub type Handler = (HandlerMethod, Box<HandlerCallback>);
 
 /// The "heart" of the module; the server struct
 ///
@@ -80,49 +138,55 @@ impl Server {
     }
 
     /// Append a function handler that will be called on any request in a specific path
-    pub fn on<S>(&mut self, path: S, handler: HandlerCallback)
+    pub fn on<S, H>(&mut self, path: S, handler: H)
     where
         S: Into<String>,
+        H: Fn(Request, Response) + 'static,
     {
         self.append_handler(path.into(), HandlerMethod::Any, handler);
     }
 
     /// Same as the [`on()`](`Server::on()`) function, but processes only GET requests
-    pub fn on_get<S>(&mut self, path: S, handler: HandlerCallback)
+    pub fn on_get<S, H>(&mut self, path: S, handler: H)
     where
         S: Into<String>,
+        H: Fn(Request, Response) + 'static,
     {
         self.append_handler(path.into(), HandlerMethod::Specific(Method::GET), handler);
     }
 
     /// Same as the [`on()`](`Server::on()`) function, but processes only HEAD requests
-    pub fn on_head<S>(&mut self, path: S, handler: HandlerCallback)
+    pub fn on_head<S, H>(&mut self, path: S, handler: H)
     where
         S: Into<String>,
+        H: Fn(Request, Response) + 'static,
     {
         self.append_handler(path.into(), HandlerMethod::Specific(Method::HEAD), handler);
     }
 
     /// Same as the [`on()`](`Server::on()`) function, but processes only POST requests
-    pub fn on_post<S>(&mut self, path: S, handler: HandlerCallback)
+    pub fn on_post<S, H>(&mut self, path: S, handler: H)
     where
         S: Into<String>,
+        H: Fn(Request, Response) + 'static,
     {
         self.append_handler(path.into(), HandlerMethod::Specific(Method::POST), handler);
     }
 
     /// Same as the [`on()`](`Server::on()`) function, but processes only PUT requests
-    pub fn on_put<S>(&mut self, path: S, handler: HandlerCallback)
+    pub fn on_put<S, H>(&mut self, path: S, handler: H)
     where
         S: Into<String>,
+        H: Fn(Request, Response) + 'static,
     {
         self.append_handler(path.into(), HandlerMethod::Specific(Method::PUT), handler);
     }
 
     /// Same as the [`on()`](`Server::on()`) function, but processes only DELETE requests
-    pub fn on_delete<S>(&mut self, path: S, handler: HandlerCallback)
+    pub fn on_delete<S, H>(&mut self, path: S, handler: H)
     where
         S: Into<String>,
+        H: Fn(Request, Response) + 'static,
     {
         self.append_handler(
             path.into(),
@@ -131,13 +195,26 @@ impl Server {
         );
     }
 
-    fn append_handler(&mut self, path: String, method: HandlerMethod, handler: HandlerCallback) {
+    /// Append a directory handler that will be called on any request in a specific path
+    pub fn on_directory<S, H>(&mut self, path: S, handler: H)
+    where
+        S: Into<String>,
+        H: Fn(Request, Response) + 'static,
+    {
+        self.append_handler(path.into(), HandlerMethod::Directory, handler);
+    }
+
+    fn append_handler<H>(&mut self, path: String, method: HandlerMethod, handler: H)
+    where
+        H: Fn(Request, Response) + 'static,
+    {
         match self.handlers.get_mut(&path) {
             Some(handlers) => {
-                handlers.push((method, handler));
+                handlers.push((method, Box::new(handler)));
             }
             None => {
-                self.handlers.insert(path, vec![(method, handler)]);
+                self.handlers
+                    .insert(path, vec![(method, Box::new(handler))]);
             }
         };
     }
@@ -146,12 +223,13 @@ impl Server {
         let mut connection = Connection::new(stream);
 
         let mut connection_open = true;
-        while connection_open {
-            let request = match Request::new(&mut connection) {
+
+        'connection_loop: while connection_open {
+            let mut request = match Request::new(&mut connection) {
                 Some(value) => value,
                 None => {
                     eprintln!("Couldn't create new request for connection. Dropping connection...");
-                    break;
+                    break 'connection_loop;
                 }
             };
 
@@ -166,7 +244,7 @@ impl Server {
                 );
                 err_response.status(Status::new(400).unwrap());
                 err_response.end();
-                break;
+                break 'connection_loop;
             }
 
             // Then check if a `Host` was sent, else respond with a 400 status code
@@ -174,13 +252,13 @@ impl Server {
                 eprintln!("Expected 'Host' header, found nothing. Dropping connection...");
                 err_response.status(Status::new(400).unwrap());
                 err_response.end();
-                break;
+                break 'connection_loop;
             }
 
             // Process headers and print them in while doing so
-            for header in request.headers.iter() {
-                match header.name.as_str() {
-                    "Connection" => match header.value.as_str() {
+            for (name, value) in request.headers.iter() {
+                match name.as_str() {
+                    "Connection" => match value.as_str() {
                         "close" => connection_open = false,
                         _ => (),
                     },
@@ -189,25 +267,58 @@ impl Server {
             }
 
             // If everything is alright, check if an appropriate handler exists for this request
-            if let Some(handlers) = self.handlers.get(&request.target.absolute_path) {
+            if let Some(handlers) = self.handlers.get(&request.target.full_url()) {
                 for handler in handlers {
                     match &handler.0 {
                         HandlerMethod::Specific(method) => {
                             if request.method == *method {
-                                (handler.1)(request.clone(), Response::new(&mut connection))
+                                (handler.1)(request, Response::new(&mut connection))
                             }
+                            continue 'connection_loop;
                         }
                         HandlerMethod::Any => {
-                            (handler.1)(request.clone(), Response::new(&mut connection))
+                            (handler.1)(request, Response::new(&mut connection));
+                            continue 'connection_loop;
                         }
+                        _ => (),
                     }
                 }
             } else {
-                // Otherwise, respond with a HTTP 404 Not Found status
-                err_response.status(Status::new(404).unwrap());
-                err_response.end();
-                break;
+                let full_url = request.target.full_url();
+                let mut path_sections = full_url.split("/");
+                path_sections.next();
+
+                let mut path_string = String::new();
+
+                for section in path_sections {
+                    path_string.push_str(&format!("/{}", section));
+
+                    if let Some(handlers) = self.handlers.get(&path_string) {
+                        if let Some(handler) = handlers
+                            .iter()
+                            .find(|handler| matches!(handler.0, HandlerMethod::Directory))
+                        {
+                            (request.target.target_path, request.target.relative_path) = (
+                                path_string.clone(),
+                                request
+                                    .target
+                                    .relative_path
+                                    .split_at(path_string.len())
+                                    .1
+                                    .to_string(),
+                            );
+
+                            (handler.1)(request, Response::new(&mut connection));
+                            continue 'connection_loop;
+                        }
+                    }
+                }
             }
+
+            // Otherwise, respond with a HTTP 404 Not Found status
+            err_response.status(Status::new(404).unwrap());
+            err_response.end();
+            break 'connection_loop;
         }
 
         connection.terminate_connection()
@@ -263,8 +374,8 @@ pub struct Request {
     /// The HTTP version the client supports
     pub version: Version,
 
-    /// A Vec containing a list of the headers of the [`Request`]
-    pub headers: Vec<Header>,
+    /// A type alias of a Hashmap containing a list of the headers of the [`Request`]
+    pub headers: Headers,
 }
 
 impl Request {
@@ -304,7 +415,7 @@ impl Request {
 		};
 
         // Create a variable for storing HTTP headers
-        let mut headers: Vec<Header> = Vec::new();
+        let mut headers: Headers = Headers::new();
 
         // Obtain available HTTP headers
         loop {
@@ -314,12 +425,10 @@ impl Request {
                 break;
             }
 
-            let Some(header) = Header::new(&line) else {
-				eprintln!("Invalid HTTP header syntax detected. Dropping connection...");
-				return None;
-			};
-
-            headers.push(header);
+            if parse_header_line(&mut headers, line).is_none() {
+                eprintln!("Invalid HTTP header syntax detected. Dropping connection...");
+                return None;
+            };
         }
 
         Some(Self {
@@ -340,8 +449,8 @@ pub struct Response<'s> {
     /// The HTTP version of the response
     pub version: Version,
 
-    /// A Vec containing the headers of the response
-    pub headers: Vec<Header>,
+    /// A type alias of a Hashmap containing the headers of the response
+    pub headers: Headers,
 }
 
 impl<'s> Response<'s> {
@@ -351,7 +460,7 @@ impl<'s> Response<'s> {
             parent,
             status: Status::new(200).unwrap(),
             version: Version::new(VERSION).unwrap(),
-            headers: Vec::new(),
+            headers: Headers::new(),
         }
     }
 
@@ -373,24 +482,22 @@ impl<'s> Response<'s> {
             .write(format!("{} {} \r\n", self.version, self.status).as_bytes())
             .unwrap();
 
-        if !message.is_empty() {
-            // Send a header indicating message length if message isn't empty
-            self.parent
-                .stream
-                .write(format!("Content-Length: {}\r\n", message.len()).as_bytes())
-                .unwrap();
-        }
+        // Send a header indicating message length
+        self.parent
+            .stream
+            .write(format!("Content-Length: {}\r\n", message.len()).as_bytes())
+            .unwrap();
 
         // Loop through each header and write them to connection stream
-        for header in &self.headers {
+        for (name, value) in &self.headers {
             self.parent
                 .stream
-                .write(format!("{}: {}\r\n", header.name, header.value).as_bytes())
+                .write(format!("{}: {}\r\n", name, value).as_bytes())
                 .unwrap();
         }
 
         // Send the response to the client (the CRLF before the response is to signal the beginning of message body)
-        // If the message is empty, this will essentialy write "\r\n" to the stream, so it will be like there is no message body
+        // If the message is empty, this will essentialy write "\r\n" to the stream, so it will be like there is a message body of zero length
         self.parent
             .stream
             .write(format!("\r\n{}", message).as_bytes())
