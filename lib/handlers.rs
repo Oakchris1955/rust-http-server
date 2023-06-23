@@ -1,6 +1,6 @@
-/*//! Includes various handlers provided by the library
+//! Includes various handlers provided by the library
 
-use std::{fs, mem};
+use std::fs;
 
 use crate::{Request, Response};
 
@@ -51,7 +51,7 @@ pub fn read_same_dir(request: Request, response: Response) {
 /// # Example:
 ///
 /// ```
-/// use oak_http_server::{handlers::read_same_dir, Server};
+/// use oak_http_server::{handlers::read_diff_dir, Server};
 ///
 /// fn main() {
 ///	    let hostname = "localhost";
@@ -62,8 +62,12 @@ pub fn read_same_dir(request: Request, response: Response) {
 ///     server.on_directory("/www", read_diff_dir("etc"));
 /// }
 /// ```
-pub fn read_diff_dir(mut parent_dir: String) -> impl FnMut(Request, Response) {
+
+pub fn read_diff_dir<S>(parent_dir: S) -> impl Fn(Request, Response)
+where
+    S: Into<String> + Clone,
+{
     move |request: Request, response: Response| {
-        read_file(mem::take(&mut parent_dir), request, response)
+        read_file(parent_dir.clone().into(), request, response)
     }
-}*/
+}

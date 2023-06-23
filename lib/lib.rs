@@ -62,7 +62,7 @@ pub use enums::*;
 mod structs;
 pub use structs::*;
 
-//pub mod handlers;
+pub mod handlers;
 
 const VERSION: &str = "HTTP/1.1";
 
@@ -81,10 +81,10 @@ pub enum HandlerMethod {
 }
 
 /// The type of the callback function of a [`Handler`]
-pub type HandlerCallback = fn(Request, Response);
+pub type HandlerCallback = dyn Fn(Request, Response);
 
 /// The type of a request handler
-pub type Handler = (HandlerMethod, HandlerCallback);
+pub type Handler = (HandlerMethod, Box<HandlerCallback>);
 
 /// The "heart" of the module; the server struct
 ///
@@ -138,49 +138,55 @@ impl Server {
     }
 
     /// Append a function handler that will be called on any request in a specific path
-    pub fn on<S>(&mut self, path: S, handler: HandlerCallback)
+    pub fn on<S, H>(&mut self, path: S, handler: H)
     where
         S: Into<String>,
+        H: Fn(Request, Response) + 'static,
     {
         self.append_handler(path.into(), HandlerMethod::Any, handler);
     }
 
     /// Same as the [`on()`](`Server::on()`) function, but processes only GET requests
-    pub fn on_get<S>(&mut self, path: S, handler: HandlerCallback)
+    pub fn on_get<S, H>(&mut self, path: S, handler: H)
     where
         S: Into<String>,
+        H: Fn(Request, Response) + 'static,
     {
         self.append_handler(path.into(), HandlerMethod::Specific(Method::GET), handler);
     }
 
     /// Same as the [`on()`](`Server::on()`) function, but processes only HEAD requests
-    pub fn on_head<S>(&mut self, path: S, handler: HandlerCallback)
+    pub fn on_head<S, H>(&mut self, path: S, handler: H)
     where
         S: Into<String>,
+        H: Fn(Request, Response) + 'static,
     {
         self.append_handler(path.into(), HandlerMethod::Specific(Method::HEAD), handler);
     }
 
     /// Same as the [`on()`](`Server::on()`) function, but processes only POST requests
-    pub fn on_post<S>(&mut self, path: S, handler: HandlerCallback)
+    pub fn on_post<S, H>(&mut self, path: S, handler: H)
     where
         S: Into<String>,
+        H: Fn(Request, Response) + 'static,
     {
         self.append_handler(path.into(), HandlerMethod::Specific(Method::POST), handler);
     }
 
     /// Same as the [`on()`](`Server::on()`) function, but processes only PUT requests
-    pub fn on_put<S>(&mut self, path: S, handler: HandlerCallback)
+    pub fn on_put<S, H>(&mut self, path: S, handler: H)
     where
         S: Into<String>,
+        H: Fn(Request, Response) + 'static,
     {
         self.append_handler(path.into(), HandlerMethod::Specific(Method::PUT), handler);
     }
 
     /// Same as the [`on()`](`Server::on()`) function, but processes only DELETE requests
-    pub fn on_delete<S>(&mut self, path: S, handler: HandlerCallback)
+    pub fn on_delete<S, H>(&mut self, path: S, handler: H)
     where
         S: Into<String>,
+        H: Fn(Request, Response) + 'static,
     {
         self.append_handler(
             path.into(),
@@ -190,20 +196,25 @@ impl Server {
     }
 
     /// Append a directory handler that will be called on any request in a specific path
-    pub fn on_directory<S>(&mut self, path: S, handler: HandlerCallback)
+    pub fn on_directory<S, H>(&mut self, path: S, handler: H)
     where
         S: Into<String>,
+        H: Fn(Request, Response) + 'static,
     {
         self.append_handler(path.into(), HandlerMethod::Directory, handler);
     }
 
-    fn append_handler(&mut self, path: String, method: HandlerMethod, handler: HandlerCallback) {
+    fn append_handler<H>(&mut self, path: String, method: HandlerMethod, handler: H)
+    where
+        H: Fn(Request, Response) + 'static,
+    {
         match self.handlers.get_mut(&path) {
             Some(handlers) => {
-                handlers.push((method, handler));
+                handlers.push((method, Box::new(handler)));
             }
             None => {
-                self.handlers.insert(path, vec![(method, handler)]);
+                self.handlers
+                    .insert(path, vec![(method, Box::new(handler))]);
             }
         };
     }
