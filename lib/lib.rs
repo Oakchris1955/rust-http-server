@@ -484,13 +484,11 @@ impl<'s> Response<'s> {
             .write(format!("{} {} \r\n", self.version, self.status).as_bytes())
             .unwrap();
 
-        if !message.is_empty() {
-            // Send a header indicating message length if message isn't empty
-            self.parent
-                .stream
-                .write(format!("Content-Length: {}\r\n", message.len()).as_bytes())
-                .unwrap();
-        }
+        // Send a header indicating message length
+        self.parent
+            .stream
+            .write(format!("Content-Length: {}\r\n", message.len()).as_bytes())
+            .unwrap();
 
         // Loop through each header and write them to connection stream
         for header in &self.headers {
@@ -501,7 +499,7 @@ impl<'s> Response<'s> {
         }
 
         // Send the response to the client (the CRLF before the response is to signal the beginning of message body)
-        // If the message is empty, this will essentialy write "\r\n" to the stream, so it will be like there is no message body
+        // If the message is empty, this will essentialy write "\r\n" to the stream, so it will be like there is a message body of zero length
         self.parent
             .stream
             .write(format!("\r\n{}", message).as_bytes())
