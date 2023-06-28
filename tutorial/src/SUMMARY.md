@@ -10,3 +10,4 @@
 # Advanced usage
 
 - [About the HTTP protocol](./http-protocol.md)
+- [Request handlers](./request-handlers.md)
