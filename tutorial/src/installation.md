@@ -18,7 +18,7 @@ If all the above commands run successfully and return without an error, that mea
 
 ## Project setup
 
-Once you have installed both off them, you must create a new Cargo package. Do this by running `cargo new oak-http-tutorial`, which will create a new directory named `oak-http-tutorial`, containing a Cargo package and a [Git](https://git-scm.com/) repository
+Once you have installed both off them, you must create a new Cargo package. Do this by running `cargo new oak-http-tutorial`, which will create a new directory named `oak-http-tutorial`, containing a Cargo package and a [Git](https://git-scm.com/) repository.
 
 Now that you have created a new package, `cd` to it using `cd oak-http-tutorial`.
 

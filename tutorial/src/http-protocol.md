@@ -39,7 +39,7 @@ A HTTP request is exactly what it says: a request towards the server to access s
 
 ### HTTP Methods
 
-There are many HTTP request methods, the most common of with are:
+There are many HTTP request methods, the most common of which are:
 
 - `GET`: Requests a representation of the specified resource
 - `HEAD`: Asks for a response identical to a GET request, but without the response body
@@ -51,7 +51,7 @@ There are many HTTP request methods, the most common of with are:
 
 The request target on the other hand is a string that represents the resource to access.
 
-For example, calling `GET` at a resource could return that resource, calling `DELETE` could delete it. It is up the server to decide how to implement each method. This library gives control over the user on how to do that
+For example, calling `GET` at a resource could return that resource, calling `DELETE` could delete it. It is up to the server to decide how to implement each method. This library gives control over the user on how to do that
 
 ## HTTP responses
 
@@ -74,7 +74,7 @@ The most commonly know status codes are:
 - `308 Permanent Redirect`: Like `301`, but the user can't switch methods.
 - `400 Bad Request`: The request is malformed and won't be processed
 - `401 Unauthorized`: The client must authenticate itself to get the requested response and make itself known to the server.
-- `402 Forbidden`: Like `401`, but the server knows who the client is, the client just isn't authorized **enough** to ccess the resource.
+- `402 Forbidden`: Like `401`, but the server knows who the client is, the client just isn't authorized **enough** to access the resource.
 - `404 Not Found`: The server cannot find the requested resource. In an API, this can also mean that the endpoint is valid but the resource itself does not exist.
 - `429 Too Many Requests`: The user has sent too many requests in a given amount of time ("rate limiting").
 - `500 Internal Server Error`: The server has encountered a situation it does not know how to handle. Usually indicates an in-server error.
