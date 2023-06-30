@@ -8,7 +8,7 @@ The usage concept of this library is centered around simplicity: this library sh
 
 In order to achieve this, the way the library is built gives full control to the user over a HTTP request and the corresponding response (in the case the request isn't malformed by the user of course. In that case, the connection is dropped before the user gets the chance to handle the connection)
 
-## What is a handler anyways
+## What is a handler anyways?
 
 As defined in `lib.rs`, the type `HandlerCallback` is a dynamically dispacted `Fn(Request, Response)`, where `Request` and `Response` and the request and response structs correspondingly. What this basically means is that any function whose has 2 arguments the first one if which is a `Request` and the second one a `Response` is a valid `HandlerCallback`
 
@@ -46,4 +46,4 @@ Let's attach those handlers to our server now:
 {{#rustdoc_include code-examples/handlers.rs:2:}}
 ```
 
-Similarly, you can create your own handlers
+Similarly, you can create your own handlers. With this library, the sky's the limit to what you can do.
