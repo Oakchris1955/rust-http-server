@@ -2,7 +2,7 @@
 
 In the past chapter, we covered basically everything about request handlers and how to utilize them, but we still haven't learned what kind of data we can read from the `Request` and `Response` structs passed to each handler. Let's find out
 
-## Some generel info
+## Some general info
 
 Before we move on, we should probably clarify a difference between the two structs:
 
