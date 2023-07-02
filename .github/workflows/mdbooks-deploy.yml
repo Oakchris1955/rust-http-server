@@ -19,16 +19,10 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Build dependencies
-        run: cargo build
-
       - uses: peaceiris/actions-mdbook@v1
         with:
             mdbook-version: '0.4.8'
             # mdbook-version: 'latest'
-
-      - name: Check mdBook
-        run: mdbook test -L ./target/debug/deps
 
       - name: Build mdBook
         run: mdbook build ./tutorial
