@@ -20,7 +20,7 @@ One of the most useful structs on this crate. Represents a HTTP URL/Target and a
 
   - `full_url()`: Appends `relative_path` into `target_path`, returns the result as a `String`
 
-- Notes
+- Note
 
   - In order to get the original HTTP URL, use the `to_string()` method (implemented with the `Display` trait)
 
@@ -51,7 +51,7 @@ The HTTP method of the HTTP `Request`
 
   - `DELETE`: The `DELETE` method deletes the specified resource.
 
-- Notes
+- Note
 
   - This enum is marked as non-exhaustive, which means that it could have additional variants added in future. Therefore, when matching against variants of non-exhaustive enums, an extra wildcard arm (`_ => { ... }`) must be added to account for any future variants.
 
@@ -80,7 +80,7 @@ The HTTP status of a `Response`
   - `InternalError`: 500 Internal Server Error
   - `NotImplemented`: 501 Not Implemented
 
-- Notes
+- Note
 
   - This enum is marked as non-exhaustive, which means that it could have additional variants added in future. Therefore, when matching against variants of non-exhaustive enums, an extra wildcard arm (`_ => { ... }`) must be added to account for any future variants.
 
