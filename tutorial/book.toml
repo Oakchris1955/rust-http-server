@@ -1,0 +1,6 @@
+[book]
+authors = ["Oakchris1955"]
+language = "en"
+multilingual = false
+src = "src"
+title = "Oak HTTP server tutorial"
