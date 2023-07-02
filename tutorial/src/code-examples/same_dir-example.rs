@@ -1,5 +1,5 @@
 extern crate oak_http_server;
-use oak_http_server::{Server, handlers::read_same_dir};
+use oak_http_server::{handlers::read_same_dir, Server};
 
 fn main() {
     let hostname = "localhost";
@@ -7,7 +7,7 @@ fn main() {
 
     let mut server = Server::new(hostname, port);
 
-	// The handler will serve static files from the local '/www' path
+    // The handler will serve static files from the local '/www' path
     server.on_directory("/www", read_same_dir);
 
     server.start(|| {
