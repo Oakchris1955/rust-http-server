@@ -30,7 +30,7 @@ Add a basic handler that always returns a static response:
 {{#rustdoc_include code-examples/minimal-server.rs:10:12}}
 ```
 
-Last, start the HTTP server:
+Lastly, start the HTTP server:
 
 ```rust, no_run
 {{#rustdoc_include code-examples/minimal-server.rs:14:16}}
