@@ -1,0 +1,36 @@
+name: GitHub Pages - MdBook Deployment
+
+on:
+  push:
+    paths:
+      - 'tutorial/**'
+      - '.github/workflows/mdbooks-deploy.yml'
+
+defaults:
+  run:
+    working-directory: tutorial
+
+jobs:
+  deploy:
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: peaceiris/actions-mdbook@v1
+        with:
+            mdbook-version: '0.4.8'
+            # mdbook-version: 'latest'
+
+      - name: Build mdBook
+        run: mdbook build
+
+      - name: Deploy
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: tutorial/book
+          destination_dir: tutorial
