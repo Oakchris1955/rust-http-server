@@ -4,10 +4,11 @@ on:
   push:
     paths:
       - 'tutorial/**'
+      - '.github/workflows/mdbooks-deploy.yml'
 
 defaults:
   run:
-    working-directory: ./tutorial
+    working-directory: tutorial
 
 jobs:
   deploy:
@@ -31,4 +32,5 @@ jobs:
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./book
+          publish_dir: tutorial/book
+          destination_dir: tutorial
