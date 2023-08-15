@@ -27,13 +27,6 @@ fn main() {
         // Create a slice and a function to correctly parse query arguments to the variables
         let variables_slice = (&["first", "second"], &mut [&mut first, &mut second]);
 
-        fn convert_to_usize(variable: &mut Option<usize>, num_string: String) {
-            match num_string.parse::<usize>() {
-                Ok(number) => *variable = Some(number),
-                _ => (),
-            }
-        }
-
         // For each query we are looking for, check if it exists and attempt to parse it into a usize
         // In case an error occurs, immediately break the loop and execute fail code
         for (&name, reference) in variables_slice.0.iter().zip(variables_slice.1.iter_mut()) {
