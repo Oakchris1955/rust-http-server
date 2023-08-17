@@ -52,6 +52,8 @@ use std::collections::HashMap;
 use std::io::{self, Write};
 use std::net::{Shutdown, SocketAddr, TcpListener, TcpStream};
 use std::process::exit;
+use std::sync::Arc;
+use std::thread;
 
 mod utils;
 use utils::*;
@@ -81,10 +83,10 @@ pub enum HandlerMethod {
 }
 
 /// The type of the callback function of a [`Handler`]
-pub type HandlerCallback = dyn Fn(Request, Response);
+pub type HandlerCallback = dyn Fn(Request, Response) + Send + Sync;
 
 /// The type of a request handler
-pub type Handler = (HandlerMethod, Box<HandlerCallback>);
+pub type Handler = (HandlerMethod, Arc<HandlerCallback>);
 
 /// The "heart" of the module; the server struct
 ///
@@ -114,7 +116,7 @@ impl Server {
     }
 
     /// Start the server and make it process incoming connections
-    pub fn start(&self, callback: fn()) {
+    pub fn start(self, callback: fn()) {
         // Initiate a TCP Listener at localhost port 2300 (port and IP address are subject to change)
         let listener = TcpListener::bind(format!("{}:{}", self.hostname, self.port))
             .unwrap_or_else(|err| {
@@ -122,13 +124,18 @@ impl Server {
                 exit(1);
             });
 
+        // Arc is basically a pointer that can be shared safely between different threads through cloning
+        let shared_self = Arc::new(self);
+
         callback();
 
-        // For each incoming connection request, accept connection and pass control of connection to "handle_client" function
+        // For each incoming connection request, accept connection and pass control of connection to "handle_connection" function
         for stream in listener.incoming() {
             match stream {
                 Ok(stream) => {
-                    self.handle_connection(stream);
+                    // Clone the Arc and move it to the new thread
+                    let self_clone = shared_self.clone();
+                    thread::spawn(move || self_clone.handle_connection(stream));
                 }
                 Err(e) => {
                     eprintln!("Failed to establish a new connection. Error message: {}", e);
@@ -141,7 +148,7 @@ impl Server {
     pub fn on<S, H>(&mut self, path: S, handler: H)
     where
         S: Into<String>,
-        H: Fn(Request, Response) + 'static,
+        H: Fn(Request, Response) + Send + Sync + 'static,
     {
         self.append_handler(path.into(), HandlerMethod::Any, handler);
     }
@@ -150,7 +157,7 @@ impl Server {
     pub fn on_get<S, H>(&mut self, path: S, handler: H)
     where
         S: Into<String>,
-        H: Fn(Request, Response) + 'static,
+        H: Fn(Request, Response) + Send + Sync + 'static,
     {
         self.append_handler(path.into(), HandlerMethod::Specific(Method::GET), handler);
     }
@@ -159,7 +166,7 @@ impl Server {
     pub fn on_head<S, H>(&mut self, path: S, handler: H)
     where
         S: Into<String>,
-        H: Fn(Request, Response) + 'static,
+        H: Fn(Request, Response) + Send + Sync + 'static,
     {
         self.append_handler(path.into(), HandlerMethod::Specific(Method::HEAD), handler);
     }
@@ -168,7 +175,7 @@ impl Server {
     pub fn on_post<S, H>(&mut self, path: S, handler: H)
     where
         S: Into<String>,
-        H: Fn(Request, Response) + 'static,
+        H: Fn(Request, Response) + Send + Sync + 'static,
     {
         self.append_handler(path.into(), HandlerMethod::Specific(Method::POST), handler);
     }
@@ -177,7 +184,7 @@ impl Server {
     pub fn on_put<S, H>(&mut self, path: S, handler: H)
     where
         S: Into<String>,
-        H: Fn(Request, Response) + 'static,
+        H: Fn(Request, Response) + Send + Sync + 'static,
     {
         self.append_handler(path.into(), HandlerMethod::Specific(Method::PUT), handler);
     }
@@ -186,7 +193,7 @@ impl Server {
     pub fn on_delete<S, H>(&mut self, path: S, handler: H)
     where
         S: Into<String>,
-        H: Fn(Request, Response) + 'static,
+        H: Fn(Request, Response) + Send + Sync + 'static,
     {
         self.append_handler(
             path.into(),
@@ -199,22 +206,22 @@ impl Server {
     pub fn on_directory<S, H>(&mut self, path: S, handler: H)
     where
         S: Into<String>,
-        H: Fn(Request, Response) + 'static,
+        H: Fn(Request, Response) + Send + Sync + 'static,
     {
         self.append_handler(path.into(), HandlerMethod::Directory, handler);
     }
 
     fn append_handler<H>(&mut self, path: String, method: HandlerMethod, handler: H)
     where
-        H: Fn(Request, Response) + 'static,
+        H: Fn(Request, Response) + Send + Sync + 'static,
     {
         match self.handlers.get_mut(&path) {
             Some(handlers) => {
-                handlers.push((method, Box::new(handler)));
+                handlers.push((method, Arc::new(handler)));
             }
             None => {
                 self.handlers
-                    .insert(path, vec![(method, Box::new(handler))]);
+                    .insert(path, vec![(method, Arc::new(handler))]);
             }
         };
     }
