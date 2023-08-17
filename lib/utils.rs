@@ -6,27 +6,29 @@ use std::net::TcpStream;
 
 pub type Headers = HashMap<String, String>;
 
-pub fn read_line(stream: &mut TcpStream) -> String {
+pub fn read_line(stream: &mut TcpStream) -> Option<String> {
     let mut temp_string = String::new();
 
     loop {
         let mut temp_array: [u8; 1] = [0];
 
-        if stream.read(&mut temp_array).is_ok() {
-            let temp_char = char::from_u32(temp_array[0] as u32).unwrap();
+        if let Ok(bytes_read) = stream.read(&mut temp_array) {
+            if bytes_read > 0 {
+                let temp_char = char::from_u32(temp_array[0] as u32)?;
 
-            if temp_char == '\n' {
-                if temp_string.chars().last().unwrap() == '\r' {
-                    temp_string.pop();
-                    break;
+                if temp_char == '\n' {
+                    if temp_string.chars().last()? == '\r' {
+                        temp_string.pop();
+                        break;
+                    }
                 }
-            }
 
-            temp_string.push(temp_char);
+                temp_string.push(temp_char);
+            }
         }
     }
 
-    temp_string
+    Some(temp_string)
 }
 
 pub fn parse_headers<S>(headers: S) -> Headers

@@ -382,7 +382,7 @@ impl Request {
     /// Create a new [`Request`] from a [`Connection`]
     pub fn new(parent: &mut Connection) -> Option<Self> {
         // Begin by reading the first line
-        let first_line = read_line(&mut parent.stream);
+        let first_line = read_line(&mut parent.stream).expect("Failed to read from TCP stream");
         // Then split it by whitespace
         let mut splitted_first_line = first_line.split_whitespace();
 
@@ -419,9 +419,9 @@ impl Request {
 
         // Obtain available HTTP headers
         loop {
-            let line = read_line(&mut parent.stream);
+            let line = read_line(&mut parent.stream).expect("Failed to read from TCP stream");
 
-            if line == String::from("") {
+            if line == String::new() {
                 break;
             }
 
