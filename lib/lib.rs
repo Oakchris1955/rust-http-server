@@ -393,31 +393,27 @@ impl Request {
         // Then split it by whitespace
         let mut splitted_first_line = first_line.split_whitespace();
 
-        // Create a HTTP response beforehand that will be used in case an error occurs
-        let mut err_response = Response::new(parent);
-
         // Check if the resulting slices aren't three in number (as they should be)
         if splitted_first_line.clone().count() != 3 {
             // If yes, print an error message to stderr and immediately terminate connection
             eprintln!("Invalid HTTP request detected. Dropping connection...");
-            err_response.status(Status::new(400).unwrap());
-            err_response.end();
+            Response::quick(parent, Status::new(400).unwrap());
             return None;
         }
 
         // Else, start obtaining the HTTP method, target and version, terminating the connection in case of errors
         let Some(method) = Method::new(splitted_first_line.next().unwrap()) else {
 			eprintln!("Invalid HTTP method detected. Dropping connection...");
-			err_response.status(Status::new(501).unwrap());
-			err_response.end();
+            Response::quick(parent, Status::new(501).unwrap());
+
 			return None;
 		};
         let target = Target::new(splitted_first_line.next().unwrap());
+
         // Note: a HTTP version struct will only check if the HTTP version is in the format "HTTP/{num}.{num}" and won't check if the major and minor revisions of the HTTP protocol exist. This check will occur later on our code
         let Some(http_version) = Version::new(splitted_first_line.next().unwrap()) else {
 			eprintln!("Invalid HTTP version detected. Dropping connection...");
-			err_response.status(Status::new(400).unwrap());
-			err_response.end();
+            Response::quick(parent, Status::new(400).unwrap());
 			return None;
 		};
 
@@ -469,6 +465,17 @@ impl<'s> Response<'s> {
             version: Version::new(VERSION).unwrap(),
             headers: Headers::new(),
         }
+    }
+
+    /// Send an empty response with a specified [`Status`] by invoking this function
+    pub fn quick(connection: &'s mut Connection, status: Status) {
+        Self {
+            parent: connection,
+            status,
+            version: Version::new(VERSION).unwrap(),
+            headers: Headers::new(),
+        }
+        .end()
     }
 
     /// CHange the [`Status`] of the response
