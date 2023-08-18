@@ -255,7 +255,7 @@ impl Server {
             }
 
             // Then check if a `Host` was sent, else respond with a 400 status code
-            if request.version != Version::new(VERSION).unwrap() {
+            if !request.headers.contains_key("Host") {
                 eprintln!("Expected 'Host' header, found nothing. Dropping connection...");
                 err_response.status(Status::new(400).unwrap());
                 err_response.end();
