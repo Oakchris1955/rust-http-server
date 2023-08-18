@@ -66,7 +66,7 @@ pub use structs::*;
 
 pub mod handlers;
 
-const VERSION: &str = "HTTP/1.1";
+const VERSION: Version = Version { major: 1, minor: 1 };
 
 /// A custom HTTP method struct that extends [`Method`].
 ///
@@ -240,25 +240,37 @@ impl Server {
                 }
             };
 
-            // Create a HTTP response beforehand that will be used in case an error occurs
-            let mut err_response = Response::new(&mut connection);
-
             // Before responding, check if the HTTP version of the request is supported (HTTP/1.1)
-            if request.version != Version::new(VERSION).unwrap() {
+            'version_check: {
+                // If the major revision is different, send 505 HTTP Version Not Supported
+                if request.version.major != VERSION.major {
+                    Response::quick(&mut connection, Status::new(400).unwrap());
+                // If not, check the minor revision
+                } else {
+                    // If it is greater than the supported one, send 400 Bad Request
+                    if request.version.minor > VERSION.minor {
+                        Response::quick(&mut connection, Status::new(400).unwrap());
+                    // If it is less, send 426 Upgrade Required
+                    } else if request.version.minor < VERSION.minor {
+                        Response::quick(&mut connection, Status::new(426).unwrap());
+                    // Otherwise, break from this code block
+                    } else {
+                        break 'version_check;
+                    }
+                }
+
+                // Lastly, if the code is still running, print an error message and break the connection loop
                 eprintln!(
                     "Expected HTTP version {}, found {}. Dropping connection...",
                     VERSION, request.version
                 );
-                err_response.status(Status::new(400).unwrap());
-                err_response.end();
                 break 'connection_loop;
             }
 
             // Then check if a `Host` was sent, else respond with a 400 status code
             if !request.headers.contains_key("Host") {
                 eprintln!("Expected 'Host' header, found nothing. Dropping connection...");
-                err_response.status(Status::new(400).unwrap());
-                err_response.end();
+                Response::quick(&mut connection, Status::new(400).unwrap());
                 break 'connection_loop;
             }
 
@@ -323,8 +335,7 @@ impl Server {
             }
 
             // Otherwise, respond with a HTTP 404 Not Found status
-            err_response.status(Status::new(404).unwrap());
-            err_response.end();
+            Response::quick(&mut connection, Status::new(404).unwrap());
             break 'connection_loop;
         }
 
@@ -462,7 +473,7 @@ impl<'s> Response<'s> {
         Self {
             parent,
             status: Status::new(200).unwrap(),
-            version: Version::new(VERSION).unwrap(),
+            version: VERSION,
             headers: Headers::new(),
         }
     }
@@ -472,7 +483,7 @@ impl<'s> Response<'s> {
         Self {
             parent: connection,
             status,
-            version: Version::new(VERSION).unwrap(),
+            version: VERSION,
             headers: Headers::new(),
         }
         .end()

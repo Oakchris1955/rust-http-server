@@ -17,11 +17,15 @@ pub enum Status {
     BadRequest,
     /// `404 Not Found`
     NotFound,
+    /// `426 Upgrade Required`
+    UpgradeRequired,
 
     /// `500 Internal Server Error`
     InternalError,
     /// `501 Not Implemented`
     NotImplemented,
+    /// `505 HTTP Version Not Supported`
+    VersionNotSupported,
 }
 
 impl Status {
@@ -52,9 +56,11 @@ impl Status {
 
             400 => Some(Self::BadRequest),
             404 => Some(Self::NotFound),
+            426 => Some(Self::UpgradeRequired),
 
             500 => Some(Self::InternalError),
             501 => Some(Self::NotImplemented),
+            505 => Some(Self::VersionNotSupported),
             _ => None,
         }
     }
@@ -73,9 +79,11 @@ impl fmt::Display for Status {
 
                 Self::BadRequest => 400,
                 Self::NotFound => 404,
+                Self::UpgradeRequired => 426,
 
                 Self::InternalError => 500,
                 Self::NotImplemented => 501,
+                Self::VersionNotSupported => 505,
             }
         )
     }
