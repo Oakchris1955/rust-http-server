@@ -15,7 +15,7 @@ fn read_file(parent_dir: String, request: Request, mut response: Response) {
 
             let status: Status = match error.kind() {
                 ErrorKind::NotFound => Status::NotFound,
-                _ => Status::InternalError,
+                _ => Status::InternalServerError,
             };
 
             response.status(status);
