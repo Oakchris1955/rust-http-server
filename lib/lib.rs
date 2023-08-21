@@ -402,31 +402,35 @@ impl Request {
         // Begin by reading the first line
         let first_line = read_line(&mut parent.stream).expect("Failed to read from TCP stream");
         // Then split it by whitespace
-        let mut splitted_first_line = first_line.split_whitespace();
+        let splitted_first_line = first_line.split_whitespace().collect::<Vec<_>>();
 
-        // Check if the resulting slices aren't three in number (as they should be)
-        if splitted_first_line.clone().count() != 3 {
-            // If yes, print an error message to stderr and immediately terminate connection
-            eprintln!("Invalid HTTP request detected. Dropping connection...");
-            Response::quick(parent, Status::new(400));
-            return None;
-        }
+        let (method, target, version) = match &splitted_first_line[..] {
+            // Check if the resulting slices aren't three in number (as they should be)
+            &[method, target, version] => {
+                // If not, try parsing the HTTP method, target and version, and terminate the connection if any error occur
+                let Some(method) = Method::new(method) else {
+                    eprintln!("Invalid HTTP method detected. Dropping connection...");
+                    Response::quick(parent, Status::new(501));
+        
+                    return None;
+                };
+                let target = Target::new(target);
+                // Note: a HTTP version struct will only check if the HTTP version is in the format "HTTP/{num}.{num}" and won't check if the major and minor revisions of the HTTP protocol exist. This check will occur later on our code                let Some(version) = Version::new(version) else {
+                let Some(version) = Version::new(version)else{
+                    eprintln!("Invalid HTTP version detected. Dropping connection...");
+                    Response::quick(parent, Status::new(400));
+                    return None;
+                };
 
-        // Else, start obtaining the HTTP method, target and version, terminating the connection in case of errors
-        let Some(method) = Method::new(splitted_first_line.next().unwrap()) else {
-			eprintln!("Invalid HTTP method detected. Dropping connection...");
-            Response::quick(parent, Status::new(501));
-
-			return None;
-		};
-        let target = Target::new(splitted_first_line.next().unwrap());
-
-        // Note: a HTTP version struct will only check if the HTTP version is in the format "HTTP/{num}.{num}" and won't check if the major and minor revisions of the HTTP protocol exist. This check will occur later on our code
-        let Some(http_version) = Version::new(splitted_first_line.next().unwrap()) else {
-			eprintln!("Invalid HTTP version detected. Dropping connection...");
-            Response::quick(parent, Status::new(400));
-			return None;
-		};
+                (method, target, version)
+            }
+            _ => {
+                // If yes, print an error message to stderr and immediately terminate connection
+                eprintln!("Invalid HTTP request detected. Dropping connection...");
+                Response::quick(parent, Status::new(400));
+                return None;
+            }
+        };
 
         // Create a variable for storing HTTP headers
         let mut headers: Headers = Headers::new();
@@ -448,7 +452,7 @@ impl Request {
         Some(Self {
             method,
             target,
-            version: http_version,
+            version,
             headers,
         })
     }
