@@ -12,39 +12,21 @@ pub fn read_line(mut connection: &mut Connection) -> Option<String> {
     let mut temp_string = String::new();
 
     loop {
-        // Allocate a u8 array with size of 1
-        let mut temp_array: [u8; 1] = [0];
-
-        // Attempt reading from the TCPStream
-        if let Ok(bytes_read) = connection.stream.read(&mut temp_array) {
-            if bytes_read > 0 {
-                // If read more than 0 bytes, turn the u8 received into a char
-                let temp_char = char::from_u32(temp_array[0] as u32)?;
-
-                // If found CRLF (\r\n), return string (without CRLF)
-                if temp_char == '\n' {
-                    if temp_string.chars().last()? == '\r' {
-                        temp_string.pop();
-                        break;
-                    }
+        // Attempt reading 1 byte from the TCPStream
+        if let Some(string_read) = read_bytes(&mut connection, 1) {
+            // If found CRLF (\r\n), return string (without CRLF)
+            if string_read == "\n" {
+                if temp_string.chars().last()? == '\r' {
+                    temp_string.pop();
+                    break;
                 }
-
-                // Else, push char to output string
-                temp_string.push(temp_char);
-
-                continue;
             }
-        }
 
-        // If an error occured, wait for some time before re-reading from stream
-        // Also, check whether the request timeout has been reached
-        if connection.inactive_since.elapsed().ok()? > connection.timeout {
-            Response::quick(&mut connection, Status::RequestTimeout);
-            return None;
-        }
+            // Else, push single-character-string to output string
+            temp_string.push_str(&string_read);
 
-        // Note: This sleep call saves a ton of resources
-        thread::sleep(time::Duration::from_millis(5));
+            continue;
+        }
     }
 
     Some(temp_string)
