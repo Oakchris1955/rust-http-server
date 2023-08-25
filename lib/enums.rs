@@ -412,13 +412,7 @@ impl fmt::Display for Status {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let status_code: usize = self.into();
         let status_text = self.get_status_text();
-        write!(
-            f,
-            "{}{}{}",
-            status_code,
-            if !status_text.is_empty() { " " } else { "" },
-            status_text
-        )
+        write!(f, "{} {}", status_code, status_text)
     }
 }
 
