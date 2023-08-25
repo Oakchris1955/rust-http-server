@@ -253,15 +253,15 @@ impl Server {
             'version_check: {
                 // If the major revision is different, send 505 HTTP Version Not Supported
                 if request.version.major != VERSION.major {
-                    Response::quick(&mut connection, Status::new(400));
+                    Response::quick(&mut connection, Status::HttpVersionNotSupported);
                 // If not, check the minor revision
                 } else {
                     // If it is greater than the supported one, send 400 Bad Request
                     if request.version.minor > VERSION.minor {
-                        Response::quick(&mut connection, Status::new(400));
+                        Response::quick(&mut connection, Status::BadRequest);
                     // If it is less, send 426 Upgrade Required
                     } else if request.version.minor < VERSION.minor {
-                        Response::quick(&mut connection, Status::new(426));
+                        Response::quick(&mut connection, Status::UpgradeRequired);
                     // Otherwise, break from this code block
                     } else {
                         break 'version_check;
@@ -279,7 +279,7 @@ impl Server {
             // Then check if a `Host` was sent, else respond with a 400 status code
             if !request.headers.contains_key("Host") {
                 eprintln!("Expected 'Host' header, found nothing. Dropping connection...");
-                Response::quick(&mut connection, Status::new(400));
+                Response::quick(&mut connection, Status::BadRequest);
                 break 'connection_loop;
             }
 
@@ -339,7 +339,7 @@ impl Server {
             }
 
             // Otherwise, respond with a HTTP 404 Not Found status
-            Response::quick(&mut connection, Status::new(404));
+            Response::quick(&mut connection, Status::NotFound);
             break 'connection_loop;
         }
 
@@ -389,7 +389,7 @@ impl Server {
                         }
 
                         // Otherwise, if an error occured while parsing, send a HTTP 400 Bad Request response code
-                        return Err(Status::new(400));
+                        return Err(Status::BadRequest);
                     }
                 }
                 _ => (),
@@ -491,14 +491,14 @@ impl Request {
                 // If not, try parsing the HTTP method, target and version, and terminate the connection if any error occur
                 let Some(method) = Method::new(method) else {
                     eprintln!("Invalid HTTP method detected. Dropping connection...");
-                    Response::quick(parent, Status::new(501));
+                    Response::quick(parent, Status::NotImplemented);
                     return None;
                 };
                 let target = Target::new(target);
                 // Note: a HTTP version struct will only check if the HTTP version is in the format "HTTP/{num}.{num}" and won't check if the major and minor revisions of the HTTP protocol exist. This check will occur later on our code                let Some(version) = Version::new(version) else {
                 let Some(version) = Version::new(version)else{
                     eprintln!("Invalid HTTP version detected. Dropping connection...");
-                    Response::quick(parent, Status::new(400));
+                    Response::quick(parent, Status::BadRequest);
                     return None;
                 };
 
@@ -507,7 +507,7 @@ impl Request {
             _ => {
                 // If yes, print an error message to stderr and immediately terminate connection
                 eprintln!("Invalid HTTP request detected. Dropping connection...");
-                Response::quick(parent, Status::new(400));
+                Response::quick(parent, Status::BadRequest);
                 return None;
             }
         };
@@ -556,7 +556,7 @@ impl Request {
                     while read_line(&mut parent)?.len() != 0 {}
                 }
                 _ => {
-                    Response::quick(parent, Status::new(400));
+                    Response::quick(parent, Status::BadRequest);
                     return None;
                 }
             }
@@ -565,11 +565,11 @@ impl Request {
                 if let Some(request_body) = utils::read_bytes(&mut parent, content_length) {
                     body = request_body
                 } else {
-                    Response::quick(parent, Status::new(500));
+                    Response::quick(parent, Status::InternalServerError);
                     return None;
                 }
             } else {
-                Response::quick(parent, Status::new(400));
+                Response::quick(parent, Status::BadRequest);
                 return None;
             }
         }
@@ -602,7 +602,7 @@ impl<'s> Response<'s> {
     pub fn new(parent: &'s mut Connection) -> Self {
         Self {
             parent,
-            status: Status::new(200),
+            status: Status::OK,
             version: VERSION,
             headers: Headers::new(),
         }

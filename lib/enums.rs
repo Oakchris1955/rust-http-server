@@ -152,7 +152,7 @@ impl Status {
     /// #
     /// fn main() {
     /// 	// Generate a new HTTP Status instance (in our case, Status::OK)
-    /// 	let status: Status = Status::new(200);
+    /// 	let status: Status = Status::OK;
     ///
     /// 	assert_eq!(status, Status::OK);
     /// }
