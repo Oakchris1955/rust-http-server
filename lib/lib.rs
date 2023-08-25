@@ -54,6 +54,7 @@ use std::net::{Shutdown, SocketAddr, TcpListener, TcpStream};
 use std::process::exit;
 use std::sync::Arc;
 use std::thread;
+use std::time::{Duration, SystemTime};
 
 mod utils;
 use utils::*;
@@ -229,9 +230,7 @@ impl Server {
     fn handle_connection(&self, stream: TcpStream) {
         let mut connection = Connection::new(stream);
 
-        let mut connection_open = true;
-
-        'connection_loop: while connection_open {
+        'connection_loop: while !connection.close {
             let mut request = match Request::new(&mut connection) {
                 Some(value) => value,
                 None => {
@@ -239,6 +238,16 @@ impl Server {
                     break 'connection_loop;
                 }
             };
+
+            // Update connection fields
+            connection.inactive_since = SystemTime::now();
+            connection.requests_received += 1;
+
+            // Check whether the max amount of requests this connection can process has been reached
+            if connection.requests_received > connection.max_requests {
+                // We just straight up close the connection. Chek this: https://stackoverflow.com/a/46365730/
+                break 'connection_loop;
+            }
 
             // Before responding, check if the HTTP version of the request is supported (HTTP/1.1)
             'version_check: {
@@ -274,16 +283,11 @@ impl Server {
                 break 'connection_loop;
             }
 
-            // Process headers and print them in while doing so
-            for (name, value) in request.headers.iter() {
-                match name.as_str() {
-                    "Connection" => match value.as_str() {
-                        "close" => connection_open = false,
-                        _ => (),
-                    },
-                    _ => (),
-                }
-            }
+            // The handle_header function returns a Status if an Error occurs, which is then sent to client
+            if let Err(status) = self.handle_headers(&mut connection, &request.headers) {
+                Response::quick(&mut connection, status);
+                break 'connection_loop;
+            };
 
             // If everything is alright, check if an appropriate handler exists for this request
             if let Some(handlers) = self.handlers.get(&request.target.full_url()) {
@@ -341,6 +345,59 @@ impl Server {
 
         connection.terminate_connection()
     }
+
+    fn handle_headers(&self, connection: &mut Connection, headers: &Headers) -> Result<(), Status> {
+        // Process headers (.to_lowercase() because headers are case-insensitive)
+        for (name, value) in headers
+            .iter()
+            .map(|(name, value)| (name.to_lowercase(), value.to_lowercase()))
+        {
+            let value = value.as_str();
+            match name.as_str() {
+                "connection" => match value {
+                    "close" => connection.close = true,
+                    // According to Mozilla Web Docs (https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Connection),
+                    // any value other than "close" is treated as "keep-alive" in HTTP/1.1 connections
+                    _ => (),
+                },
+                "keep-alive" => {
+                    // Parse the header value
+                    for parameter in value.split(",") {
+                        if let Some((param_name, param_value)) = parameter.split_once("=") {
+                            if let Ok(param_int_value) = param_value.parse::<usize>() {
+                                // Match the header parameters
+                                // Note: the server will process them only if they are in logical limits
+                                // For example, the server won't allow a timeout of more than the default one (which is 60 seconds)
+                                match param_name {
+                                    "timeout" => {
+                                        if param_int_value <= connection.timeout.as_secs() as usize
+                                        {
+                                            connection.timeout =
+                                                Duration::from_secs(param_int_value as u64)
+                                        }
+                                    }
+                                    "max" => {
+                                        if param_int_value <= 20 {
+                                            connection.max_requests = param_int_value
+                                        }
+                                    }
+                                    _ => (),
+                                }
+
+                                continue;
+                            }
+                        }
+
+                        // Otherwise, if an error occured while parsing, send a HTTP 400 Bad Request response code
+                        return Err(Status::new(400));
+                    }
+                }
+                _ => (),
+            }
+        }
+
+        Ok(())
+    }
 }
 
 /// A struct representing a HTTP connection between a client and the server
@@ -348,6 +405,19 @@ pub struct Connection {
     /// The address of the peer client (if known)
     pub peer_address: io::Result<SocketAddr>,
 
+    /// Whether to close the connection or not
+    close: bool,
+    /// Connection timeout (in seconds)
+    timeout: Duration,
+    /// Max number of requests that can be received before closing the connection
+    max_requests: usize,
+
+    /// How long this connection hasn't received a HTTP request
+    inactive_since: SystemTime,
+    /// The number of requests received in this connection
+    requests_received: usize,
+
+    /// The [`TcpStream`] from which to read and write data
     stream: TcpStream,
 }
 
@@ -365,6 +435,14 @@ impl Connection {
 
         Self {
             peer_address,
+
+            close: false,
+            timeout: Duration::from_secs(60),
+            max_requests: 5,
+
+            inactive_since: SystemTime::now(),
+            requests_received: 0,
+
             stream,
         }
     }
@@ -392,15 +470,18 @@ pub struct Request {
     /// The HTTP version the client supports
     pub version: Version,
 
+    /// The body of the request (if any)
+    pub body: String,
+
     /// A type alias of a Hashmap containing a list of the headers of the [`Request`]
     pub headers: Headers,
 }
 
 impl Request {
     /// Create a new [`Request`] from a [`Connection`]
-    pub fn new(parent: &mut Connection) -> Option<Self> {
+    pub fn new(mut parent: &mut Connection) -> Option<Self> {
         // Begin by reading the first line
-        let first_line = read_line(&mut parent.stream).expect("Failed to read from TCP stream");
+        let first_line = read_line(&mut parent)?;
         // Then split it by whitespace
         let splitted_first_line = first_line.split_whitespace().collect::<Vec<_>>();
 
@@ -411,7 +492,6 @@ impl Request {
                 let Some(method) = Method::new(method) else {
                     eprintln!("Invalid HTTP method detected. Dropping connection...");
                     Response::quick(parent, Status::new(501));
-        
                     return None;
                 };
                 let target = Target::new(target);
@@ -437,7 +517,7 @@ impl Request {
 
         // Obtain available HTTP headers
         loop {
-            let line = read_line(&mut parent.stream).expect("Failed to read from TCP stream");
+            let line = read_line(&mut parent)?;
 
             if line == String::new() {
                 break;
@@ -449,10 +529,56 @@ impl Request {
             };
         }
 
+        // Check if the HTTP request has a body
+        let mut body = String::new();
+
+        // Check if the HTTP request has some body
+        // (for example, when the Content-Type header is set to multipart/form-data or application/x-www-form-urlencoded)
+        if let Some(transfer_encoding) = headers.get("Transfer-Encoding") {
+            match transfer_encoding.as_str() {
+                "chunked" => {
+                    loop {
+                        let length_line = read_line(&mut parent)?;
+                        let (chunk_length, _) = length_line.split_once(";")?;
+                        let chunk_length = usize::from_str_radix(chunk_length, 16).ok()?;
+
+                        if chunk_length != 0 {
+                            let chunk_body = read_bytes(&mut parent, chunk_length + 2)?;
+                            body.push_str(&chunk_body[..&chunk_body.len() - 2]);
+                        } else {
+                            // Remove CRLF from stream
+                            read_bytes(&mut parent, 2);
+                            break;
+                        }
+                    }
+
+                    // Ignore the trailers
+                    while read_line(&mut parent)?.len() != 0 {}
+                }
+                _ => {
+                    Response::quick(parent, Status::new(400));
+                    return None;
+                }
+            }
+        } else if let Some(content_length) = headers.get("Content-Length") {
+            if let Ok(content_length) = content_length.parse::<usize>() {
+                if let Some(request_body) = utils::read_bytes(&mut parent, content_length) {
+                    body = request_body
+                } else {
+                    Response::quick(parent, Status::new(500));
+                    return None;
+                }
+            } else {
+                Response::quick(parent, Status::new(400));
+                return None;
+            }
+        }
+
         Some(Self {
             method,
             target,
             version,
+            body,
             headers,
         })
     }
