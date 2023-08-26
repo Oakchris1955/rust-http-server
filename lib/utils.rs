@@ -96,7 +96,7 @@ where
     if let Some((name, mut value)) = header.split_once(":") {
         // Trim the value str from any whitespaces
         value = value.trim();
-        headers.insert(name.to_string(), value.to_string());
+        headers.insert(name.to_lowercase(), value.to_string());
 
         Some(())
     } else {

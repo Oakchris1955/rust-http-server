@@ -277,7 +277,7 @@ impl Server {
             }
 
             // Then check if a `Host` was sent, else respond with a 400 status code
-            if !request.headers.contains_key("Host") {
+            if !request.headers.contains_key("host") {
                 eprintln!("Expected 'Host' header, found nothing. Dropping connection...");
                 Response::quick(&mut connection, Status::BadRequest);
                 break 'connection_loop;
@@ -474,6 +474,8 @@ pub struct Request {
     pub body: Vec<u8>,
 
     /// A type alias of a Hashmap containing a list of the headers of the [`Request`]
+    /// Please note that in order to comply with RFC 9110, Section 5.1-3 ("Field names are case-insensitive..."),
+    /// the header names are all in lowercase. Their value, however, is left intact
     pub headers: Headers,
 }
 
@@ -534,7 +536,7 @@ impl Request {
 
         // Check if the HTTP request has some body
         // (for example, when the Content-Type header is set to multipart/form-data or application/x-www-form-urlencoded)
-        if let Some(transfer_encoding) = headers.get("Transfer-Encoding") {
+        if let Some(transfer_encoding) = headers.get("transfer-encoding") {
             match transfer_encoding.as_str() {
                 "chunked" => {
                     loop {
@@ -560,7 +562,7 @@ impl Request {
                     return None;
                 }
             }
-        } else if let Some(content_length) = headers.get("Content-Length") {
+        } else if let Some(content_length) = headers.get("content-length") {
             if let Ok(content_length) = content_length.parse::<usize>() {
                 if let Some(request_body) = utils::read_bytes(&mut parent, content_length) {
                     body = request_body
