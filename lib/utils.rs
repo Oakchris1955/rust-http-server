@@ -13,17 +13,18 @@ pub fn read_line(mut connection: &mut Connection) -> Option<String> {
 
     loop {
         // Attempt reading 1 byte from the TCPStream
-        if let Some(string_read) = read_bytes(&mut connection, 1) {
+        if let Some(bytes_read) = read_bytes(&mut connection, 1) {
+            let char_read = bytes_read[0] as char;
             // If found CRLF (\r\n), return string (without CRLF)
-            if string_read == "\n" {
+            if char_read == '\n' {
                 if temp_string.chars().last()? == '\r' {
                     temp_string.pop();
                     break;
                 }
             }
 
-            // Else, push single-character-string to output string
-            temp_string.push_str(&string_read);
+            // Else, push char to output string
+            temp_string.push(char_read);
 
             continue;
         }
@@ -32,8 +33,8 @@ pub fn read_line(mut connection: &mut Connection) -> Option<String> {
     Some(temp_string)
 }
 
-pub fn read_bytes(mut connection: &mut Connection, bytes_to_read: usize) -> Option<String> {
-    let mut temp_string = String::new();
+pub fn read_bytes(mut connection: &mut Connection, bytes_to_read: usize) -> Option<Vec<u8>> {
+    let mut temp_vec = Vec::new();
 
     loop {
         // Allocate a u8 array with size of 1
@@ -42,14 +43,11 @@ pub fn read_bytes(mut connection: &mut Connection, bytes_to_read: usize) -> Opti
         // Attempt reading from the TCPStream
         if let Ok(bytes_read) = connection.stream.read(&mut temp_array) {
             if bytes_read > 0 {
-                // If read more than 0 bytes, turn the u8 received into a char
-                let temp_char = char::from_u32(temp_array[0] as u32)?;
-
-                // Push char to output string
-                temp_string.push(temp_char);
+                // If read more than 0 bytes, push the byte received to output vector
+                temp_vec.push(temp_array[0]);
 
                 // If read as many bytes as we want, break loop
-                if temp_string.len() == bytes_to_read {
+                if temp_vec.len() == bytes_to_read {
                     break;
                 }
 
@@ -68,7 +66,7 @@ pub fn read_bytes(mut connection: &mut Connection, bytes_to_read: usize) -> Opti
         thread::sleep(time::Duration::from_millis(5));
     }
 
-    Some(temp_string)
+    Some(temp_vec)
 }
 
 pub fn parse_headers<S>(headers: S) -> Headers

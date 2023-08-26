@@ -471,7 +471,7 @@ pub struct Request {
     pub version: Version,
 
     /// The body of the request (if any)
-    pub body: String,
+    pub body: Vec<u8>,
 
     /// A type alias of a Hashmap containing a list of the headers of the [`Request`]
     pub headers: Headers,
@@ -529,8 +529,8 @@ impl Request {
             };
         }
 
-        // Check if the HTTP request has a body
-        let mut body = String::new();
+        // Allocate an empty vector for the request body
+        let mut body = Vec::new();
 
         // Check if the HTTP request has some body
         // (for example, when the Content-Type header is set to multipart/form-data or application/x-www-form-urlencoded)
@@ -544,7 +544,7 @@ impl Request {
 
                         if chunk_length != 0 {
                             let chunk_body = read_bytes(&mut parent, chunk_length + 2)?;
-                            body.push_str(&chunk_body[..&chunk_body.len() - 2]);
+                            body.extend_from_slice(&chunk_body[..&chunk_body.len() - 2]);
                         } else {
                             // Remove CRLF from stream
                             read_bytes(&mut parent, 2);
