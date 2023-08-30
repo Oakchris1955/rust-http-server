@@ -619,20 +619,11 @@ impl<'s> Response<'s> {
         }
     }
 
-    /// Send an empty response with a specified [`Status`] by invoking this function
-    pub fn quick(connection: &'s mut Connection, status: Status) {
-        Self {
-            parent: connection,
-            status,
-            version: VERSION,
-            sent_status: false,
-            headers: DEFAULT_HEADERS
-                .into_iter()
-                .map(|(a, b)| (a.to_string(), b.to_string()))
-                .collect(),
-            sent_headers: false,
-        }
-        .end()
+    /// Send an empty response with a specified [`Status`]
+    fn quick(connection: &'s mut Connection, status: Status) {
+        let mut response = Self::new(connection);
+        response.status(status);
+        response.end()
     }
 
     /// Change the [`Status`] of the response
