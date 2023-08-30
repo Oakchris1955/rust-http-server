@@ -3,13 +3,13 @@ use oak_http_server::{Request, Response, Server};
 
 fn example_handler_func(_request: Request, response: Response) {
     // This handler responds to the HTTP request with a predefined string
-    response.send("I am a concrete function handler!!!");
+    response.end_with("I am a concrete function handler!!!");
 }
 
 fn main() {
     let example_handler_closure = |_request: Request, response: Response| {
         // This handler responds to the HTTP request with a predefined string
-        response.send("And I am a closure!!!");
+        response.end_with("And I am a closure!!!");
     };
 
     let hostname = "localhost";

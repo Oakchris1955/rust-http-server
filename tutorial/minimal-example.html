@@ -185,7 +185,7 @@
 </span><span class="boring">    let mut server = Server::new(hostname, port);
 </span><span class="boring">
 </span><span class="boring">    server.on(&quot;/hello&quot;, |_request, response| {
-</span><span class="boring">        response.send(&quot;Hello, World!&quot;)
+</span><span class="boring">        response.end_with(&quot;Hello, World!&quot;)
 </span><span class="boring">    });
 </span><span class="boring">
 </span><span class="boring">    server.start(|| {
@@ -204,7 +204,7 @@
     let mut server = Server::new(hostname, port);
 <span class="boring">
 </span><span class="boring">    server.on(&quot;/hello&quot;, |_request, response| {
-</span><span class="boring">        response.send(&quot;Hello, World!&quot;)
+</span><span class="boring">        response.end_with(&quot;Hello, World!&quot;)
 </span><span class="boring">    });
 </span><span class="boring">
 </span><span class="boring">    server.start(|| {
@@ -223,7 +223,7 @@
 </span><span class="boring">    let mut server = Server::new(hostname, port);
 </span><span class="boring">
 </span>    server.on(&quot;/hello&quot;, |_request, response| {
-        response.send(&quot;Hello, World!&quot;)
+        response.end_with(&quot;Hello, World!&quot;)
     });
 <span class="boring">
 </span><span class="boring">    server.start(|| {
@@ -242,7 +242,7 @@
 </span><span class="boring">    let mut server = Server::new(hostname, port);
 </span><span class="boring">
 </span><span class="boring">    server.on(&quot;/hello&quot;, |_request, response| {
-</span><span class="boring">        response.send(&quot;Hello, World!&quot;)
+</span><span class="boring">        response.end_with(&quot;Hello, World!&quot;)
 </span><span class="boring">    });
 </span><span class="boring">
 </span>    server.start(|| {

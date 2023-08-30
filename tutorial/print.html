@@ -217,7 +217,7 @@
 </span><span class="boring">    let mut server = Server::new(hostname, port);
 </span><span class="boring">
 </span><span class="boring">    server.on(&quot;/hello&quot;, |_request, response| {
-</span><span class="boring">        response.send(&quot;Hello, World!&quot;)
+</span><span class="boring">        response.end_with(&quot;Hello, World!&quot;)
 </span><span class="boring">    });
 </span><span class="boring">
 </span><span class="boring">    server.start(|| {
@@ -236,7 +236,7 @@
     let mut server = Server::new(hostname, port);
 <span class="boring">
 </span><span class="boring">    server.on(&quot;/hello&quot;, |_request, response| {
-</span><span class="boring">        response.send(&quot;Hello, World!&quot;)
+</span><span class="boring">        response.end_with(&quot;Hello, World!&quot;)
 </span><span class="boring">    });
 </span><span class="boring">
 </span><span class="boring">    server.start(|| {
@@ -255,7 +255,7 @@
 </span><span class="boring">    let mut server = Server::new(hostname, port);
 </span><span class="boring">
 </span>    server.on(&quot;/hello&quot;, |_request, response| {
-        response.send(&quot;Hello, World!&quot;)
+        response.end_with(&quot;Hello, World!&quot;)
     });
 <span class="boring">
 </span><span class="boring">    server.start(|| {
@@ -274,7 +274,7 @@
 </span><span class="boring">    let mut server = Server::new(hostname, port);
 </span><span class="boring">
 </span><span class="boring">    server.on(&quot;/hello&quot;, |_request, response| {
-</span><span class="boring">        response.send(&quot;Hello, World!&quot;)
+</span><span class="boring">        response.end_with(&quot;Hello, World!&quot;)
 </span><span class="boring">    });
 </span><span class="boring">
 </span>    server.start(|| {
@@ -367,13 +367,13 @@
 </span><span class="boring">
 </span>fn example_handler_func(_request: Request, response: Response) {
     // This handler responds to the HTTP request with a predefined string
-    response.send(&quot;I am a concrete function handler!!!&quot;);
+    response.end_with(&quot;I am a concrete function handler!!!&quot;);
 }
 <span class="boring">
 </span><span class="boring">fn main() {
 </span><span class="boring">    let example_handler_closure = |_request: Request, response: Response| {
 </span><span class="boring">        // This handler responds to the HTTP request with a predefined string
-</span><span class="boring">        response.send(&quot;And I am a closure!!!&quot;);
+</span><span class="boring">        response.end_with(&quot;And I am a closure!!!&quot;);
 </span><span class="boring">    };
 </span><span class="boring">
 </span><span class="boring">    let hostname = &quot;localhost&quot;;
@@ -400,13 +400,13 @@
 </span><span class="boring">
 </span><span class="boring">fn example_handler_func(_request: Request, response: Response) {
 </span><span class="boring">    // This handler responds to the HTTP request with a predefined string
-</span><span class="boring">    response.send(&quot;I am a concrete function handler!!!&quot;);
+</span><span class="boring">    response.end_with(&quot;I am a concrete function handler!!!&quot;);
 </span><span class="boring">}
 </span><span class="boring">
 </span><span class="boring">fn main() {
 </span>    let example_handler_closure = |_request: Request, response: Response| {
         // This handler responds to the HTTP request with a predefined string
-        response.send(&quot;And I am a closure!!!&quot;);
+        response.end_with(&quot;And I am a closure!!!&quot;);
     };
 <span class="boring">
 </span><span class="boring">    let hostname = &quot;localhost&quot;;
@@ -447,13 +447,13 @@
 
 fn example_handler_func(_request: Request, response: Response) {
     // This handler responds to the HTTP request with a predefined string
-    response.send(&quot;I am a concrete function handler!!!&quot;);
+    response.end_with(&quot;I am a concrete function handler!!!&quot;);
 }
 
 fn main() {
     let example_handler_closure = |_request: Request, response: Response| {
         // This handler responds to the HTTP request with a predefined string
-        response.send(&quot;And I am a closure!!!&quot;);
+        response.end_with(&quot;And I am a closure!!!&quot;);
     };
 
     let hostname = &quot;localhost&quot;;
