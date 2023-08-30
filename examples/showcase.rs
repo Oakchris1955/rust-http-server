@@ -6,7 +6,7 @@ fn main() {
 
     let mut server = Server::new(hostname, port);
     server.on("/test", |request, response| {
-        response.send(format!(
+        response.end_with(format!(
             "Your current query options are:\n{}",
             request
                 .target
@@ -46,12 +46,12 @@ fn main() {
         // If there was an error parsing or finding the query parameters, respond with a 400 status code and return
         if !success {
             response.status(Status::BadRequest);
-            response.send("Error while parsing query arguments \"first\" and \"second\"");
+            response.end_with("Error while parsing query arguments \"first\" and \"second\"");
             return;
         }
 
         // Add both variables together and return them
-        response.send((first + second).to_string());
+        response.end_with((first + second).to_string());
     });
 
     server.start(|| {

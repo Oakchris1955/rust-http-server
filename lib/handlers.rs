@@ -8,7 +8,7 @@ fn read_file(parent_dir: String, request: Request, mut response: Response) {
     match fs::read_to_string(
         parent_dir.chars().skip(1).collect::<String>() + &request.target.relative_path,
     ) {
-        Ok(contents) => response.send(contents),
+        Ok(contents) => response.end_with(contents),
         Err(error) => {
             use crate::enums::Status;
             use std::io::ErrorKind;

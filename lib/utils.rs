@@ -8,6 +8,8 @@ use crate::{Connection, Response, Status};
 
 pub type Headers = HashMap<String, String>;
 
+pub const DEFAULT_HEADERS: &[(&'static str, &'static str)] = &[("Transfer-Encoding", "chunked")];
+
 pub fn read_line(mut connection: &mut Connection) -> Option<String> {
     let mut temp_string = String::new();
 

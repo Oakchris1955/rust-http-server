@@ -23,12 +23,12 @@
 //!     let mut server = Server::new(hostname, port);
 //!
 //!     // The following path handler responds to each response to the "/ping" path with "Pong!"
-//!     server.on("/ping", |_request, response| response.send("Pong!"));
+//!     server.on("/ping", |_request, response| response.end_with("Pong!"));
 //!     
 //!     // The following path handler responds only to GET requests on the "\headers" path
 //!     // and returns a list of the headers supplied in the corresponding HTTP request
 //!     server.on_get("/headers", |request, response| {
-//!         response.send(format!(
+//!         response.end_with(format!(
 //!	            "Your browser sent the following headers with the request:\n{}",
 //!	            request
 //!	                .headers
@@ -594,9 +594,13 @@ pub struct Response<'s> {
     pub status: Status,
     /// The HTTP version of the response
     pub version: Version,
+    // Whether we have already sent the status line or not
+    sent_status: bool,
 
     /// A type alias of a Hashmap containing the headers of the response
     pub headers: Headers,
+    // Whether we have already sent the headers or not
+    sent_headers: bool,
 }
 
 impl<'s> Response<'s> {
@@ -606,7 +610,12 @@ impl<'s> Response<'s> {
             parent,
             status: Status::OK,
             version: VERSION,
-            headers: Headers::new(),
+            sent_status: false,
+            headers: DEFAULT_HEADERS
+                .into_iter()
+                .map(|(a, b)| (a.to_string(), b.to_string()))
+                .collect(),
+            sent_headers: false,
         }
     }
 
@@ -616,54 +625,105 @@ impl<'s> Response<'s> {
             parent: connection,
             status,
             version: VERSION,
-            headers: Headers::new(),
+            sent_status: false,
+            headers: DEFAULT_HEADERS
+                .into_iter()
+                .map(|(a, b)| (a.to_string(), b.to_string()))
+                .collect(),
+            sent_headers: false,
         }
         .end()
     }
 
-    /// CHange the [`Status`] of the response
+    /// Change the [`Status`] of the response
     pub fn status(&mut self, status: Status) {
-        self.status = status;
+        if !self.sent_status {
+            self.status = status;
+        }
     }
 
-    /// Send the response along with a message (consumes the response)
-    pub fn send<S>(self, message: S)
+    // Send a HTTP status line response
+    fn send_status(&mut self) {
+        if !self.sent_status {
+            self.parent
+                .stream
+                .write(format!("{} {}\r\n", self.version, self.status).as_bytes())
+                .unwrap();
+            self.sent_status = true;
+        }
+    }
+
+    // Send headers indicating message length
+    fn send_headers(&mut self) {
+        if !self.sent_headers {
+            // Invoke send_status function
+            self.send_status();
+
+            // Loop through each header and write them to connection stream
+            for (name, value) in &self.headers {
+                self.parent
+                    .stream
+                    .write(format!("{}: {}\r\n", name, value).as_bytes())
+                    .unwrap();
+            }
+
+            // Send CRLF indicating that no more headers will be received
+            self.parent.stream.write(b"\r\n").unwrap();
+            self.sent_headers = true;
+        }
+    }
+
+    fn send_chunk(&mut self, chunk_data: Vec<u8>) {
+        // Check if there are any data to actually send
+        // According to RFC 2616, Section 3.6.1, second paragraph, a chunk can't have a length of 0, unless it is the last chunk
+        if !chunk_data.is_empty() {
+            // Invoke send_headers function
+            self.send_headers();
+
+            // Send chunk size
+            self.parent
+                .stream
+                .write(format!("{:x}\r\n", chunk_data.len()).as_bytes())
+                .unwrap();
+
+            // Send chunk data
+            self.parent.stream.write(&chunk_data).unwrap();
+            self.parent.stream.write(b"\r\n").unwrap();
+        }
+    }
+
+    fn end_chunked(&mut self) {
+        // Invoke send_headers function
+        self.send_headers();
+
+        // Send last-chunk, followed by CRLF
+        self.parent.stream.write(b"0\r\n\r\n").unwrap();
+    }
+
+    /// Send some data to the connection
+    pub fn send<S>(&mut self, message: S)
     where
         S: Into<String>,
     {
-        let message: String = message.into();
+        // Turn String to u8 vector
+        let message: Vec<u8> = message.into().as_bytes().to_vec();
 
-        // Send a HTTP status line response
-        self.parent
-            .stream
-            .write(format!("{} {}\r\n", self.version, self.status).as_bytes())
-            .unwrap();
-
-        // Send a header indicating message length
-        self.parent
-            .stream
-            .write(format!("Content-Length: {}\r\n", message.len()).as_bytes())
-            .unwrap();
-
-        // Loop through each header and write them to connection stream
-        for (name, value) in &self.headers {
-            self.parent
-                .stream
-                .write(format!("{}: {}\r\n", name, value).as_bytes())
-                .unwrap();
-        }
-
-        // Send the response to the client (the CRLF before the response is to signal the beginning of message body)
-        // If the message is empty, this will essentialy write "\r\n" to the stream, so it will be like there is a message body of zero length
-        self.parent
-            .stream
-            .write(format!("\r\n{}", message).as_bytes())
-            .unwrap();
+        // Send message
+        self.send_chunk(message);
     }
 
-    /// Send an empty response (consumes it)
-    pub fn end(self) {
-        // Basically send an empty response
-        self.send("");
+    /// End the response (consumes it)
+    pub fn end(mut self) {
+        // An alias to self.end_chunked()
+        self.end_chunked();
+    }
+
+    /// End the response with some data (calls [`Response.send`](#method.send), then [`Response.end`](#method.end))
+    pub fn end_with<S>(mut self, message: S)
+    where
+        S: Into<String>,
+    {
+        self.send(message);
+        self.end();
     }
 }
