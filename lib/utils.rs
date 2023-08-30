@@ -6,9 +6,17 @@ use std::{thread, time};
 
 use crate::{Connection, Response, Status};
 
+/// The type of the headers field in a [`Request`](crate::Request)
 pub type Headers = HashMap<String, String>;
 
-pub const DEFAULT_HEADERS: &[(&'static str, &'static str)] = &[("Transfer-Encoding", "chunked")];
+/// A list of the headers the client can't modify in a [`Request`](crate::Request)
+pub const FORBIDDEN_HEADERS: &[&'static str] = &[
+    "Content-Length",
+    "Date",
+    "Trailer",
+    "Transfer-Encoding",
+    "Upgrade",
+];
 
 pub fn read_line(mut connection: &mut Connection) -> Option<String> {
     let mut temp_string = String::new();

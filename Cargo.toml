@@ -20,3 +20,4 @@ name = "oak_http_server"
 path = "lib/lib.rs"
 
 [dependencies]
+time = { version = "0.3.28", features = ["formatting", "macros"] }

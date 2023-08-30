@@ -56,8 +56,11 @@ use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, SystemTime};
 
+use time::{macros::format_description, OffsetDateTime};
+
 mod utils;
 use utils::*;
+pub use utils::{Headers, FORBIDDEN_HEADERS};
 
 mod enums;
 pub use enums::*;
@@ -598,7 +601,7 @@ pub struct Response<'s> {
     sent_status: bool,
 
     /// A type alias of a Hashmap containing the headers of the response
-    pub headers: Headers,
+    headers: Headers,
     // Whether we have already sent the headers or not
     sent_headers: bool,
 }
@@ -611,10 +614,19 @@ impl<'s> Response<'s> {
             status: Status::OK,
             version: VERSION,
             sent_status: false,
-            headers: DEFAULT_HEADERS
-                .into_iter()
-                .map(|(a, b)| (a.to_string(), b.to_string()))
-                .collect(),
+            headers: [
+                // Set some default headers
+                (String::from("Transfer-Encoding"), String::from("chunked")),
+                (String::from("Date"), {
+                    OffsetDateTime::now_utc()
+                        .format(format_description!(
+                            "[weekday repr:short], [day] [month repr:short] [year] [hour]:[minute]:[second] GMT"
+                        ))
+                        .unwrap()
+                }),
+            ]
+            .map(|(a, b)| (a.to_string(), b.to_string()))
+            .into(),
             sent_headers: false,
         }
     }
@@ -631,6 +643,35 @@ impl<'s> Response<'s> {
         if !self.sent_status {
             self.status = status;
         }
+    }
+
+    /// Set a new header
+    pub fn set_header<S>(&mut self, name: S, value: S)
+    where
+        S: Into<String>,
+    {
+        let name = name.into();
+
+        // Don't push the header to the internal header field if it is a forbidden one
+        if !FORBIDDEN_HEADERS
+            .iter()
+            .map(|item| item.to_lowercase())
+            .any(|item| item == name.to_lowercase())
+        {
+            self.headers.insert(name, value.into());
+        }
+    }
+
+    /// Set multiple new headers
+    pub fn set_headers(&mut self, other_headers: Headers) {
+        other_headers
+            .iter()
+            .for_each(|(name, value)| self.set_header(name, value))
+    }
+
+    /// Get a reference to the internal [`Headers`]
+    pub fn get_headers(&self) -> &Headers {
+        &self.headers
     }
 
     // Send a HTTP status line response
