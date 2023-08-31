@@ -63,9 +63,7 @@ pub fn read_same_dir(request: Request, response: Response) {
 
 pub fn read_diff_dir<S>(parent_dir: S) -> impl Fn(Request, Response)
 where
-    S: Into<String> + Clone,
+    S: ToString,
 {
-    move |request: Request, response: Response| {
-        read_file(parent_dir.clone().into(), request, response)
-    }
+    move |request: Request, response: Response| read_file(parent_dir.to_string(), request, response)
 }

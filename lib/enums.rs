@@ -454,9 +454,9 @@ impl Method {
     /// ```
     pub fn new<S>(method: S) -> Option<Self>
     where
-        S: Into<String>,
+        S: ToString,
     {
-        match method.into().as_str() {
+        match method.to_string().as_str() {
             "GET" => Some(Self::GET),
             "HEAD" => Some(Self::HEAD),
             "POST" => Some(Self::POST),

@@ -108,11 +108,11 @@ impl Server {
     /// Initialize a [`Server`] by passing a hostname and a port number
     pub fn new<S, N>(hostname: S, port: N) -> Self
     where
-        S: Into<String>,
+        S: ToString,
         N: Into<u16>,
     {
         Self {
-            hostname: hostname.into(),
+            hostname: hostname.to_string(),
             port: port.into(),
 
             handlers: HashMap::new(),
@@ -151,56 +151,72 @@ impl Server {
     /// Append a function handler that will be called on any request in a specific path
     pub fn on<S, H>(&mut self, path: S, handler: H)
     where
-        S: Into<String>,
+        S: ToString,
         H: Fn(Request, Response) + Send + Sync + 'static,
     {
-        self.append_handler(path.into(), HandlerMethod::Any, handler);
+        self.append_handler(path.to_string(), HandlerMethod::Any, handler);
     }
 
     /// Same as the [`on()`](`Server::on()`) function, but processes only GET requests
     pub fn on_get<S, H>(&mut self, path: S, handler: H)
     where
-        S: Into<String>,
+        S: ToString,
         H: Fn(Request, Response) + Send + Sync + 'static,
     {
-        self.append_handler(path.into(), HandlerMethod::Specific(Method::GET), handler);
+        self.append_handler(
+            path.to_string(),
+            HandlerMethod::Specific(Method::GET),
+            handler,
+        );
     }
 
     /// Same as the [`on()`](`Server::on()`) function, but processes only HEAD requests
     pub fn on_head<S, H>(&mut self, path: S, handler: H)
     where
-        S: Into<String>,
+        S: ToString,
         H: Fn(Request, Response) + Send + Sync + 'static,
     {
-        self.append_handler(path.into(), HandlerMethod::Specific(Method::HEAD), handler);
+        self.append_handler(
+            path.to_string(),
+            HandlerMethod::Specific(Method::HEAD),
+            handler,
+        );
     }
 
     /// Same as the [`on()`](`Server::on()`) function, but processes only POST requests
     pub fn on_post<S, H>(&mut self, path: S, handler: H)
     where
-        S: Into<String>,
+        S: ToString,
         H: Fn(Request, Response) + Send + Sync + 'static,
     {
-        self.append_handler(path.into(), HandlerMethod::Specific(Method::POST), handler);
+        self.append_handler(
+            path.to_string(),
+            HandlerMethod::Specific(Method::POST),
+            handler,
+        );
     }
 
     /// Same as the [`on()`](`Server::on()`) function, but processes only PUT requests
     pub fn on_put<S, H>(&mut self, path: S, handler: H)
     where
-        S: Into<String>,
+        S: ToString,
         H: Fn(Request, Response) + Send + Sync + 'static,
     {
-        self.append_handler(path.into(), HandlerMethod::Specific(Method::PUT), handler);
+        self.append_handler(
+            path.to_string(),
+            HandlerMethod::Specific(Method::PUT),
+            handler,
+        );
     }
 
     /// Same as the [`on()`](`Server::on()`) function, but processes only DELETE requests
     pub fn on_delete<S, H>(&mut self, path: S, handler: H)
     where
-        S: Into<String>,
+        S: ToString,
         H: Fn(Request, Response) + Send + Sync + 'static,
     {
         self.append_handler(
-            path.into(),
+            path.to_string(),
             HandlerMethod::Specific(Method::DELETE),
             handler,
         );
@@ -209,10 +225,10 @@ impl Server {
     /// Append a directory handler that will be called on any request in a specific path
     pub fn on_directory<S, H>(&mut self, path: S, handler: H)
     where
-        S: Into<String>,
+        S: ToString,
         H: Fn(Request, Response) + Send + Sync + 'static,
     {
-        self.append_handler(path.into(), HandlerMethod::Directory, handler);
+        self.append_handler(path.to_string(), HandlerMethod::Directory, handler);
     }
 
     fn append_handler<H>(&mut self, path: String, method: HandlerMethod, handler: H)
@@ -648,9 +664,9 @@ impl<'s> Response<'s> {
     /// Set a new header
     pub fn set_header<S>(&mut self, name: S, value: S)
     where
-        S: Into<String>,
+        S: ToString,
     {
-        let name = name.into();
+        let name = name.to_string();
 
         // Don't push the header to the internal header field if it is a forbidden one
         if !FORBIDDEN_HEADERS
@@ -658,7 +674,7 @@ impl<'s> Response<'s> {
             .map(|item| item.to_lowercase())
             .any(|item| item == name.to_lowercase())
         {
-            self.headers.insert(name, value.into());
+            self.headers.insert(name, value.to_string());
         }
     }
 
@@ -735,10 +751,10 @@ impl<'s> Response<'s> {
     /// Send some data to the connection
     pub fn send<S>(&mut self, message: S)
     where
-        S: Into<String>,
+        S: ToString,
     {
         // Turn String to u8 vector
-        let message: Vec<u8> = message.into().as_bytes().to_vec();
+        let message: Vec<u8> = message.to_string().as_bytes().to_vec();
 
         // Send message
         self.send_chunk(message);
@@ -753,7 +769,7 @@ impl<'s> Response<'s> {
     /// End the response with some data (calls [`Response.send`](#method.send), then [`Response.end`](#method.end))
     pub fn end_with<S>(mut self, message: S)
     where
-        S: Into<String>,
+        S: ToString,
     {
         self.send(message);
         self.end();

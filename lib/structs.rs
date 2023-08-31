@@ -28,9 +28,9 @@ impl Version {
     /// ```
     pub fn new<S>(version: S) -> Option<Self>
     where
-        S: Into<String>,
+        S: ToString,
     {
-        let version = version.into();
+        let version = version.to_string();
 
         if version.len() >= 5 {
             if &version[0..4] == "HTTP" && &version[4..5] == "/" {
@@ -84,9 +84,9 @@ impl Target {
     /// Parses a [`&str`] or [`String`] into a [`Target`]
     pub fn new<S>(target: S) -> Self
     where
-        S: Into<String>,
+        S: ToString,
     {
-        let target_string: String = Self::decode_url(target.into());
+        let target_string: String = Self::decode_url(target.to_string());
 
         let (absolute_path, queries_str) = target_string
             .split_once('?')

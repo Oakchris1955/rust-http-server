@@ -81,9 +81,9 @@ pub fn read_bytes(mut connection: &mut Connection, bytes_to_read: usize) -> Opti
 
 pub fn parse_headers<S>(headers: S) -> Headers
 where
-    S: Into<String>,
+    S: ToString,
 {
-    let headers: String = headers.into();
+    let headers: String = headers.to_string();
     let mut temp_hashmap: Headers = HashMap::new();
 
     for header in headers.split("\r\n") {
@@ -99,9 +99,9 @@ where
 
 pub fn parse_header_line<S>(headers: &mut Headers, line: S) -> Option<()>
 where
-    S: Into<String>,
+    S: ToString,
 {
-    let header: String = line.into();
+    let header: String = line.to_string();
 
     if let Some((name, mut value)) = header.split_once(":") {
         // Trim the value str from any whitespaces
