@@ -2,7 +2,11 @@
 
 use std::collections::HashMap;
 use std::io::Read;
-use std::{thread, time};
+use std::time::SystemTime;
+use std::{thread, time as std_time};
+
+use time::macros::format_description;
+use time::OffsetDateTime;
 
 use crate::{Connection, Response, Status};
 
@@ -13,6 +17,7 @@ pub type Headers = HashMap<String, String>;
 pub const FORBIDDEN_HEADERS: &[&'static str] = &[
     "Content-Length",
     "Date",
+    "Set-Cookie",
     "Trailer",
     "Transfer-Encoding",
     "Upgrade",
@@ -73,7 +78,7 @@ pub fn read_bytes(mut connection: &mut Connection, bytes_to_read: usize) -> Opti
         }
 
         // Note: This sleep call saves a ton of resources
-        thread::sleep(time::Duration::from_millis(5));
+        thread::sleep(std_time::Duration::from_millis(5));
     }
 
     Some(temp_vec)
@@ -112,4 +117,13 @@ where
     } else {
         None
     }
+}
+
+/// Convert [`SystemTime`] to HTTP Date (RFC 9110, Section 5.6.7, IMF-fixdate definition)
+pub fn format_time(time_to_format: SystemTime) -> String {
+    OffsetDateTime::from(time_to_format)
+        .format(format_description!(
+            "[weekday repr:short], [day] [month repr:short] [year] [hour]:[minute]:[second] GMT"
+        ))
+        .unwrap()
 }

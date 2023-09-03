@@ -48,15 +48,13 @@
 //! }
 //! ```
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::io::{self, Write};
 use std::net::{Shutdown, SocketAddr, TcpListener, TcpStream};
 use std::process::exit;
 use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, SystemTime};
-
-use time::{macros::format_description, OffsetDateTime};
 
 mod utils;
 use utils::*;
@@ -91,6 +89,9 @@ pub type HandlerCallback = dyn Fn(Request, Response) + Send + Sync;
 
 /// The type of a request handler
 pub type Handler = (HandlerMethod, Arc<HandlerCallback>);
+
+/// Represents a collection of HTTP cookies
+pub type Cookies = HashMap<String, String>;
 
 /// The "heart" of the module; the server struct
 ///
@@ -496,6 +497,9 @@ pub struct Request {
     /// Please note that in order to comply with RFC 9110, Section 5.1-3 ("Field names are case-insensitive..."),
     /// the header names are all in lowercase. Their value, however, is left intact
     pub headers: Headers,
+
+    /// A list of the [`Cookies`] the client sent alongside this [`Request`]
+    pub cookies: Cookies,
 }
 
 impl Request {
@@ -550,6 +554,17 @@ impl Request {
             };
         }
 
+        // Parse cookies from Cookie header
+        let mut cookies: Cookies = HashMap::new();
+
+        if let Some(cookies_header) = headers.get("cookie") {
+            for cookie in cookies_header.split("; ") {
+                if let Some((name, value)) = cookie.split_once("=") {
+                    cookies.insert(name.to_string(), value.to_string());
+                }
+            }
+        }
+
         // Allocate an empty vector for the request body
         let mut body = Vec::new();
 
@@ -601,6 +616,7 @@ impl Request {
             version,
             body,
             headers,
+            cookies,
         })
     }
 }
@@ -620,6 +636,9 @@ pub struct Response<'s> {
     headers: Headers,
     // Whether we have already sent the headers or not
     sent_headers: bool,
+
+    /// A list of the Cookies to send
+    cookies: HashSet<Cookie>,
 }
 
 impl<'s> Response<'s> {
@@ -633,17 +652,12 @@ impl<'s> Response<'s> {
             headers: [
                 // Set some default headers
                 (String::from("Transfer-Encoding"), String::from("chunked")),
-                (String::from("Date"), {
-                    OffsetDateTime::now_utc()
-                        .format(format_description!(
-                            "[weekday repr:short], [day] [month repr:short] [year] [hour]:[minute]:[second] GMT"
-                        ))
-                        .unwrap()
-                }),
+                (String::from("Date"), format_time(SystemTime::now())),
             ]
             .map(|(a, b)| (a.to_string(), b.to_string()))
             .into(),
             sent_headers: false,
+            cookies: HashSet::new(),
         }
     }
 
@@ -659,6 +673,13 @@ impl<'s> Response<'s> {
         if !self.sent_status {
             self.status = status;
         }
+    }
+
+    /// Set a new cookie
+    pub fn set_cookie(&mut self, cookie: &mut Cookie) {
+        // .replace() inserts the provided cookie to the cookies HashSet
+        // and removes any cookie with the same name (in order to prevent cookies with the same name being sent)
+        self.cookies.replace(cookie.clone());
     }
 
     /// Set a new header
@@ -701,7 +722,7 @@ impl<'s> Response<'s> {
         }
     }
 
-    // Send headers indicating message length
+    // Send headers
     fn send_headers(&mut self) {
         if !self.sent_headers {
             // Invoke send_status function
@@ -714,6 +735,14 @@ impl<'s> Response<'s> {
                     .write(format!("{}: {}\r\n", name, value).as_bytes())
                     .unwrap();
             }
+
+            // Send the cookies
+            self.cookies.iter().for_each(|cookie| {
+                self.parent
+                    .stream
+                    .write(format!("Set-Cookie: {}\n", cookie).as_bytes())
+                    .unwrap();
+            });
 
             // Send CRLF indicating that no more headers will be received
             self.parent.stream.write(b"\r\n").unwrap();
