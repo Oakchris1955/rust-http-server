@@ -206,7 +206,7 @@ impl fmt::Display for SameSite {
 
 /// Represents a HTTP cookie
 ///
-/// This struct also implements some functions that allow function chaining.
+/// This struct also implements some functions that allow some form of function chaining.
 ///
 /// For example:
 /// ```
@@ -217,13 +217,12 @@ impl fmt::Display for SameSite {
 ///
 /// fn main() {
 ///     // Create a new cookie
-///     let cookie = Cookie::new("my_cookie", "some-value")
+///     let mut cookie = Cookie::new("my_cookie", "some-value");
+///
 ///     // Set the HTTP-Only attribute
-///            .set_http_only(true)
+///     cookie.set_http_only(true)
 ///     // Set the path attribute
-///            .set_path("/some/path")
-///     // Clone to turn &mut Cookie to Cookie
-///            .clone();
+///           .set_path("/some/path");
 ///
 ///     // Cookie doesn't implement Debug, but it implements Eq and PartialEq
 ///     // For this reason, we use assert!() instead of assert_eq!()

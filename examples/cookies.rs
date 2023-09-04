@@ -9,10 +9,11 @@ fn main() {
     server.on("/set-cookies", |request, mut response| {
         // Loop throught URL queries and set them as cookies
         for (name, value) in request.target.queries.iter() {
-            response.set_cookie(
-                Cookie::new(name, value)
-                    .set_expires(SystemTime::now() + Duration::from_secs(60 * 60)),
-            );
+            response.set_cookie({
+                let mut cookie = Cookie::new(name, value);
+                cookie.set_expires(SystemTime::now() + Duration::from_secs(60 * 60));
+                cookie
+            });
         }
 
         // End request with an informative message

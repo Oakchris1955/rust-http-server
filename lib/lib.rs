@@ -676,10 +676,10 @@ impl<'s> Response<'s> {
     }
 
     /// Set a new cookie
-    pub fn set_cookie(&mut self, cookie: &mut Cookie) {
+    pub fn set_cookie(&mut self, cookie: Cookie) {
         // .replace() inserts the provided cookie to the cookies HashSet
         // and removes any cookie with the same name (in order to prevent cookies with the same name being sent)
-        self.cookies.replace(cookie.clone());
+        self.cookies.replace(cookie);
     }
 
     /// Set a new header
