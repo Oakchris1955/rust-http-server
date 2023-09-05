@@ -57,8 +57,8 @@ use std::thread;
 use std::time::{Duration, SystemTime};
 
 mod utils;
+pub use utils::Headers;
 use utils::*;
-pub use utils::{Headers, FORBIDDEN_HEADERS};
 
 mod enums;
 pub use enums::*;
@@ -633,7 +633,7 @@ pub struct Response<'s> {
     sent_status: bool,
 
     /// A type alias of a Hashmap containing the headers of the response
-    headers: Headers,
+    pub headers: Headers,
     // Whether we have already sent the headers or not
     sent_headers: bool,
 
@@ -687,16 +687,7 @@ impl<'s> Response<'s> {
     where
         S: ToString,
     {
-        let name = name.to_string();
-
-        // Don't push the header to the internal header field if it is a forbidden one
-        if !FORBIDDEN_HEADERS
-            .iter()
-            .map(|item| item.to_lowercase())
-            .any(|item| item == name.to_lowercase())
-        {
-            self.headers.insert(name, value.to_string());
-        }
+        self.headers.insert(name.to_string(), value.to_string());
     }
 
     /// Set multiple new headers

@@ -13,16 +13,6 @@ use crate::{Connection, Response, Status};
 /// The type of the headers field in a [`Request`](crate::Request)
 pub type Headers = HashMap<String, String>;
 
-/// A list of the headers the client can't modify in a [`Request`](crate::Request)
-pub const FORBIDDEN_HEADERS: &[&'static str] = &[
-    "Content-Length",
-    "Date",
-    "Set-Cookie",
-    "Trailer",
-    "Transfer-Encoding",
-    "Upgrade",
-];
-
 pub fn read_line(mut connection: &mut Connection) -> Option<String> {
     let mut temp_string = String::new();
 
