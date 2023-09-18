@@ -10,18 +10,18 @@ In order to achieve this, the way the library is built gives full control to the
 
 ## What is a handler anyways?
 
-As defined in `lib.rs`, the type `HandlerCallback` is a dynamically dispacted `Fn(Request, Response)`, where `Request` and `Response` and the request and response structs correspondingly. What this basically means is that any function whose has 2 arguments, the first one of which is a `Request` and the second one a `Response` is a valid `HandlerCallback`
+As defined in `lib.rs`, the type `HandlerCallback` is a dynamically dispacted `Fn(Request, Response) -> io::Result<()>`, where `Request` and `Response` and the request and response structs correspondingly. What this basically means is that any function whose has 2 arguments, the first one of which is a `Request`, the second one a `Response` and which returns an `io::Result<()>` is a valid `HandlerCallback`
 
 For example, the following function falls under the aforementioned criteria:
 
 ```rust, no_run
-{{#rustdoc_include code-examples/handlers.rs:4:7}}
+{{#rustdoc_include code-examples/handlers.rs:5:8}}
 ```
 
 Since our handler is a `Fn` trait and not a concrete `fn` type, we call also pass closures as handlers. The following closure is also a valid handler
 
 ```rust, no_run
-{{#rustdoc_include code-examples/handlers.rs:10:13}}
+{{#rustdoc_include code-examples/handlers.rs:11:15}}
 ```
 
 ## Appending handlers
