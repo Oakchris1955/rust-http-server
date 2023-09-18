@@ -1,17 +1,19 @@
 //! Includes various handlers provided by the library
 
-use std::fs;
+use std::{fs, io};
 
 use crate::{Request, Response};
 
-fn read_file(parent_dir: String, request: Request, mut response: Response) {
+fn read_file(parent_dir: String, request: Request, mut response: Response) -> io::Result<()> {
     match fs::read_to_string(
         parent_dir.chars().skip(1).collect::<String>() + &request.target.relative_path,
     ) {
-        Ok(contents) => response.end_with(contents),
+        Ok(contents) => {
+            response.end_with(contents)?;
+        }
         Err(error) => {
             use crate::enums::Status;
-            use std::io::ErrorKind;
+            use io::ErrorKind;
 
             let status: Status = match error.kind() {
                 ErrorKind::NotFound => Status::NotFound,
@@ -19,9 +21,11 @@ fn read_file(parent_dir: String, request: Request, mut response: Response) {
             };
 
             response.status(status);
-            response.end();
+            response.end()?;
         }
     }
+
+    Ok(())
 }
 
 /// Read a file from the same directory as the one specified during the handler's creation
@@ -40,7 +44,7 @@ fn read_file(parent_dir: String, request: Request, mut response: Response) {
 ///     server.on_directory("/www", read_same_dir);
 /// }
 /// ```
-pub fn read_same_dir(request: Request, response: Response) {
+pub fn read_same_dir(request: Request, response: Response) -> io::Result<()> {
     read_file(request.target.target_path.clone(), request, response)
 }
 
@@ -61,7 +65,7 @@ pub fn read_same_dir(request: Request, response: Response) {
 /// }
 /// ```
 
-pub fn read_diff_dir<S>(parent_dir: S) -> impl Fn(Request, Response)
+pub fn read_diff_dir<S>(parent_dir: S) -> impl Fn(Request, Response) -> io::Result<()>
 where
     S: ToString,
 {

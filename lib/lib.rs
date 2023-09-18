@@ -85,7 +85,7 @@ pub enum HandlerMethod {
 }
 
 /// The type of the callback function of a [`Handler`]
-pub type HandlerCallback = dyn Fn(Request, Response) + Send + Sync;
+pub type HandlerCallback = dyn Fn(Request, Response) -> io::Result<()> + Send + Sync;
 
 /// The type of a request handler
 pub type Handler = (HandlerMethod, Arc<HandlerCallback>);
@@ -153,7 +153,7 @@ impl Server {
     pub fn on<S, H>(&mut self, path: S, handler: H)
     where
         S: ToString,
-        H: Fn(Request, Response) + Send + Sync + 'static,
+        H: Fn(Request, Response) -> io::Result<()> + Send + Sync + 'static,
     {
         self.append_handler(path.to_string(), HandlerMethod::Any, handler);
     }
@@ -162,7 +162,7 @@ impl Server {
     pub fn on_get<S, H>(&mut self, path: S, handler: H)
     where
         S: ToString,
-        H: Fn(Request, Response) + Send + Sync + 'static,
+        H: Fn(Request, Response) -> io::Result<()> + Send + Sync + 'static,
     {
         self.append_handler(
             path.to_string(),
@@ -175,7 +175,7 @@ impl Server {
     pub fn on_head<S, H>(&mut self, path: S, handler: H)
     where
         S: ToString,
-        H: Fn(Request, Response) + Send + Sync + 'static,
+        H: Fn(Request, Response) -> io::Result<()> + Send + Sync + 'static,
     {
         self.append_handler(
             path.to_string(),
@@ -188,7 +188,7 @@ impl Server {
     pub fn on_post<S, H>(&mut self, path: S, handler: H)
     where
         S: ToString,
-        H: Fn(Request, Response) + Send + Sync + 'static,
+        H: Fn(Request, Response) -> io::Result<()> + Send + Sync + 'static,
     {
         self.append_handler(
             path.to_string(),
@@ -201,7 +201,7 @@ impl Server {
     pub fn on_put<S, H>(&mut self, path: S, handler: H)
     where
         S: ToString,
-        H: Fn(Request, Response) + Send + Sync + 'static,
+        H: Fn(Request, Response) -> io::Result<()> + Send + Sync + 'static,
     {
         self.append_handler(
             path.to_string(),
@@ -214,7 +214,7 @@ impl Server {
     pub fn on_delete<S, H>(&mut self, path: S, handler: H)
     where
         S: ToString,
-        H: Fn(Request, Response) + Send + Sync + 'static,
+        H: Fn(Request, Response) -> io::Result<()> + Send + Sync + 'static,
     {
         self.append_handler(
             path.to_string(),
@@ -227,14 +227,14 @@ impl Server {
     pub fn on_directory<S, H>(&mut self, path: S, handler: H)
     where
         S: ToString,
-        H: Fn(Request, Response) + Send + Sync + 'static,
+        H: Fn(Request, Response) -> io::Result<()> + Send + Sync + 'static,
     {
         self.append_handler(path.to_string(), HandlerMethod::Directory, handler);
     }
 
     fn append_handler<H>(&mut self, path: String, method: HandlerMethod, handler: H)
     where
-        H: Fn(Request, Response) + Send + Sync + 'static,
+        H: Fn(Request, Response) -> io::Result<()> + Send + Sync + 'static,
     {
         match self.handlers.get_mut(&path) {
             Some(handlers) => {
@@ -247,14 +247,14 @@ impl Server {
         };
     }
 
-    fn handle_connection(&self, stream: TcpStream) {
+    fn handle_connection(&self, stream: TcpStream) -> io::Result<()> {
         let mut connection = Connection::new(stream);
 
         'connection_loop: while !connection.close {
             let mut request = match Request::new(&mut connection) {
-                Some(value) => value,
-                None => {
-                    eprintln!("Couldn't create new request for connection. Dropping connection...");
+                Ok(value) => value,
+                Err(err) => {
+                    eprintln!("Couldn't create new request for connection. Reason: {}\nDropping connection...", err);
                     break 'connection_loop;
                 }
             };
@@ -273,15 +273,15 @@ impl Server {
             'version_check: {
                 // If the major revision is different, send 505 HTTP Version Not Supported
                 if request.version.major != VERSION.major {
-                    Response::quick(&mut connection, Status::HttpVersionNotSupported);
+                    Response::quick(&mut connection, Status::HttpVersionNotSupported)?;
                 // If not, check the minor revision
                 } else {
                     // If it is greater than the supported one, send 400 Bad Request
                     if request.version.minor > VERSION.minor {
-                        Response::quick(&mut connection, Status::BadRequest);
+                        Response::quick(&mut connection, Status::BadRequest)?;
                     // If it is less, send 426 Upgrade Required
                     } else if request.version.minor < VERSION.minor {
-                        Response::quick(&mut connection, Status::UpgradeRequired);
+                        Response::quick(&mut connection, Status::UpgradeRequired)?;
                     // Otherwise, break from this code block
                     } else {
                         break 'version_check;
@@ -299,13 +299,13 @@ impl Server {
             // Then check if a `Host` was sent, else respond with a 400 status code
             if !request.headers.contains_key("host") {
                 eprintln!("Expected 'Host' header, found nothing. Dropping connection...");
-                Response::quick(&mut connection, Status::BadRequest);
+                Response::quick(&mut connection, Status::BadRequest)?;
                 break 'connection_loop;
             }
 
             // The handle_header function returns a Status if an Error occurs, which is then sent to client
             if let Err(status) = self.handle_headers(&mut connection, &request.headers) {
-                Response::quick(&mut connection, status);
+                Response::quick(&mut connection, status)?;
                 break 'connection_loop;
             };
 
@@ -315,12 +315,12 @@ impl Server {
                     match &handler.0 {
                         HandlerMethod::Specific(method) => {
                             if request.method == *method {
-                                (handler.1)(request, Response::new(&mut connection))
+                                (handler.1)(request, Response::new(&mut connection))?;
                             }
                             continue 'connection_loop;
                         }
                         HandlerMethod::Any => {
-                            (handler.1)(request, Response::new(&mut connection));
+                            (handler.1)(request, Response::new(&mut connection))?;
                             continue 'connection_loop;
                         }
                         _ => (),
@@ -351,7 +351,7 @@ impl Server {
                                     .to_string(),
                             );
 
-                            (handler.1)(request, Response::new(&mut connection));
+                            (handler.1)(request, Response::new(&mut connection))?;
                             continue 'connection_loop;
                         }
                     }
@@ -359,11 +359,13 @@ impl Server {
             }
 
             // Otherwise, respond with a HTTP 404 Not Found status
-            Response::quick(&mut connection, Status::NotFound);
+            Response::quick(&mut connection, Status::NotFound)?;
             break 'connection_loop;
         }
 
-        connection.terminate_connection()
+        connection.terminate_connection();
+
+        Ok(())
     }
 
     fn handle_headers(&self, connection: &mut Connection, headers: &Headers) -> Result<(), Status> {
@@ -457,7 +459,7 @@ impl Connection {
             peer_address,
 
             close: false,
-            timeout: Duration::from_secs(60),
+            timeout: Duration::from_secs(10),
             max_requests: 5,
 
             inactive_since: SystemTime::now(),
@@ -504,7 +506,7 @@ pub struct Request {
 
 impl Request {
     /// Create a new [`Request`] from a [`Connection`]
-    pub fn new(mut parent: &mut Connection) -> Option<Self> {
+    pub fn new(mut parent: &mut Connection) -> io::Result<Self> {
         // Begin by reading the first line
         let first_line = read_line(&mut parent)?;
         // Then split it by whitespace
@@ -516,15 +518,15 @@ impl Request {
                 // If not, try parsing the HTTP method, target and version, and terminate the connection if any error occur
                 let Some(method) = Method::new(method) else {
                     eprintln!("Invalid HTTP method detected. Dropping connection...");
-                    Response::quick(parent, Status::NotImplemented);
-                    return None;
+                    Response::quick(parent, Status::NotImplemented)?;
+                    return Err(io::Error::new(io::ErrorKind::InvalidData, "Invalid HTTP data"));
                 };
                 let target = Target::new(target);
                 // Note: a HTTP version struct will only check if the HTTP version is in the format "HTTP/{num}.{num}" and won't check if the major and minor revisions of the HTTP protocol exist. This check will occur later on our code                let Some(version) = Version::new(version) else {
                 let Some(version) = Version::new(version)else{
                     eprintln!("Invalid HTTP version detected. Dropping connection...");
-                    Response::quick(parent, Status::BadRequest);
-                    return None;
+                    Response::quick(parent, Status::BadRequest)?;
+                    return Err(io::Error::new(io::ErrorKind::InvalidData, "Invalid HTTP data"));
                 };
 
                 (method, target, version)
@@ -532,8 +534,11 @@ impl Request {
             _ => {
                 // If yes, print an error message to stderr and immediately terminate connection
                 eprintln!("Invalid HTTP request detected. Dropping connection...");
-                Response::quick(parent, Status::BadRequest);
-                return None;
+                Response::quick(parent, Status::BadRequest)?;
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "Invalid HTTP data",
+                ));
             }
         };
 
@@ -550,7 +555,10 @@ impl Request {
 
             if parse_header_line(&mut headers, line).is_none() {
                 eprintln!("Invalid HTTP header syntax detected. Dropping connection...");
-                return None;
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "Invalid HTTP data",
+                ));
             };
         }
 
@@ -575,15 +583,25 @@ impl Request {
                 "chunked" => {
                     loop {
                         let length_line = read_line(&mut parent)?;
-                        let (chunk_length, _) = length_line.split_once(";")?;
-                        let chunk_length = usize::from_str_radix(chunk_length, 16).ok()?;
+                        let (chunk_length, _) =
+                            length_line.split_once(";").ok_or(io::Error::new(
+                                io::ErrorKind::InvalidData,
+                                "Expected ; seperator for chunked data length",
+                            ))?;
+                        let chunk_length =
+                            usize::from_str_radix(chunk_length, 16).map_err(|_| {
+                                io::Error::new(
+                                    io::ErrorKind::InvalidData,
+                                    "Invalid chunk length format",
+                                )
+                            })?;
 
                         if chunk_length != 0 {
                             let chunk_body = read_bytes(&mut parent, chunk_length + 2)?;
                             body.extend_from_slice(&chunk_body[..&chunk_body.len() - 2]);
                         } else {
                             // Remove CRLF from stream
-                            read_bytes(&mut parent, 2);
+                            read_bytes(&mut parent, 2)?;
                             break;
                         }
                     }
@@ -591,26 +609,17 @@ impl Request {
                     // Ignore the trailers
                     while read_line(&mut parent)?.len() != 0 {}
                 }
-                _ => {
-                    Response::quick(parent, Status::BadRequest);
-                    return None;
-                }
+                _ => Response::quick(parent, Status::BadRequest)?,
             }
         } else if let Some(content_length) = headers.get("content-length") {
             if let Ok(content_length) = content_length.parse::<usize>() {
-                if let Some(request_body) = utils::read_bytes(&mut parent, content_length) {
-                    body = request_body
-                } else {
-                    Response::quick(parent, Status::InternalServerError);
-                    return None;
-                }
+                body = read_bytes(&mut parent, content_length)?
             } else {
-                Response::quick(parent, Status::BadRequest);
-                return None;
+                Response::quick(parent, Status::BadRequest)?
             }
         }
 
-        Some(Self {
+        Ok(Self {
             method,
             target,
             version,
@@ -662,7 +671,7 @@ impl<'s> Response<'s> {
     }
 
     /// Send an empty response with a specified [`Status`]
-    fn quick(connection: &'s mut Connection, status: Status) {
+    fn quick(connection: &'s mut Connection, status: Status) -> io::Result<()> {
         let mut response = Self::new(connection);
         response.status(status);
         response.end()
@@ -703,73 +712,77 @@ impl<'s> Response<'s> {
     }
 
     // Send a HTTP status line response
-    fn send_status(&mut self) {
+    fn send_status(&mut self) -> io::Result<()> {
         if !self.sent_status {
             self.parent
                 .stream
-                .write(format!("{} {}\r\n", self.version, self.status).as_bytes())
-                .unwrap();
+                .write(format!("{} {}\r\n", self.version, self.status).as_bytes())?;
             self.sent_status = true;
         }
+
+        Ok(())
     }
 
     // Send headers
-    fn send_headers(&mut self) {
+    fn send_headers(&mut self) -> io::Result<()> {
         if !self.sent_headers {
             // Invoke send_status function
-            self.send_status();
+            self.send_status()?;
 
             // Loop through each header and write them to connection stream
             for (name, value) in &self.headers {
                 self.parent
                     .stream
-                    .write(format!("{}: {}\r\n", name, value).as_bytes())
-                    .unwrap();
+                    .write(format!("{}: {}\r\n", name, value).as_bytes())?;
             }
 
             // Send the cookies
-            self.cookies.iter().for_each(|cookie| {
+            for cookie in self.cookies.iter() {
                 self.parent
                     .stream
-                    .write(format!("Set-Cookie: {}\n", cookie).as_bytes())
-                    .unwrap();
-            });
+                    .write(format!("Set-Cookie: {}\n", cookie).as_bytes())?;
+            }
 
             // Send CRLF indicating that no more headers will be received
-            self.parent.stream.write(b"\r\n").unwrap();
+            self.parent.stream.write(b"\r\n")?;
             self.sent_headers = true;
         }
+
+        Ok(())
     }
 
-    fn send_chunk(&mut self, chunk_data: Vec<u8>) {
+    fn send_chunk(&mut self, chunk_data: Vec<u8>) -> io::Result<()> {
         // Check if there are any data to actually send
         // According to RFC 2616, Section 3.6.1, second paragraph, a chunk can't have a length of 0, unless it is the last chunk
         if !chunk_data.is_empty() {
             // Invoke send_headers function
-            self.send_headers();
+            self.send_headers()?;
 
             // Send chunk size
             self.parent
                 .stream
-                .write(format!("{:x}\r\n", chunk_data.len()).as_bytes())
-                .unwrap();
+                .write(format!("{:x}\r\n", chunk_data.len()).as_bytes())?;
 
             // Send chunk data
-            self.parent.stream.write(&chunk_data).unwrap();
-            self.parent.stream.write(b"\r\n").unwrap();
+            self.parent.stream.write(&chunk_data)?;
+            self.parent.stream.write(b"\r\n")?;
         }
+
+        Ok(())
     }
 
-    fn end_chunked(&mut self) {
+    fn end_chunked(&mut self) -> io::Result<()> {
         // Invoke send_headers function
-        self.send_headers();
+        self.send_headers()?;
 
         // Send last-chunk, followed by CRLF
-        self.parent.stream.write(b"0\r\n\r\n").unwrap();
+        self.parent.stream.write(b"0\r\n\r\n")?;
+
+        Ok(())
     }
 
     /// Send some data to the connection
-    pub fn send<S>(&mut self, message: S)
+    pub fn send<S>(&mut self, message: S) -> io::Result<()>
     where
         S: ToString,
     {
@@ -777,21 +790,27 @@ impl<'s> Response<'s> {
         let message: Vec<u8> = message.to_string().as_bytes().to_vec();
 
         // Send message
-        self.send_chunk(message);
+        self.send_chunk(message)?;
+
+        Ok(())
     }
 
     /// End the response (consumes it)
-    pub fn end(mut self) {
+    pub fn end(mut self) -> io::Result<()> {
         // An alias to self.end_chunked()
-        self.end_chunked();
+        self.end_chunked()?;
+
+        Ok(())
     }
 
     /// End the response with some data (calls [`Response.send`](#method.send), then [`Response.end`](#method.end))
-    pub fn end_with<S>(mut self, message: S)
+    pub fn end_with<S>(mut self, message: S) -> io::Result<()>
     where
         S: ToString,
     {
-        self.send(message);
-        self.end();
+        self.send(message)?;
+        self.end()?;
+
+        Ok(())
     }
 }

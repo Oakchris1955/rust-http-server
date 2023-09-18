@@ -26,18 +26,22 @@ fn main() {
                 .map(|(name, _)| name.as_str())
                 .collect::<Vec<&str>>()
                 .join(", ")
-        ));
+        ))?;
+
+        Ok(())
     });
 
     server.on("/get-cookies", |request, mut response| {
-        response.send("Your cookies are:\n");
+        response.send("Your cookies are:\n")?;
 
         // Loop through request cookies and send them to the user
         for (name, value) in request.cookies.iter() {
-            response.send(format!("{}: {}\n", name, value))
+            response.send(format!("{}: {}\n", name, value))?;
         }
 
-        response.end()
+        response.end()?;
+
+        Ok(())
     });
 
     server.start(|| {

@@ -14,7 +14,9 @@ fn main() {
                 .iter()
                 .map(|(name, value)| format!("{}: {}\n", name, value))
                 .collect::<String>()
-        ))
+        ))?;
+
+        Ok(())
     });
 
     server.on_get("/add", |request, mut response| {
@@ -46,12 +48,14 @@ fn main() {
         // If there was an error parsing or finding the query parameters, respond with a 400 status code and return
         if !success {
             response.status(Status::BadRequest);
-            response.end_with("Error while parsing query arguments \"first\" and \"second\"");
-            return;
+            response.end_with("Error while parsing query arguments \"first\" and \"second\"")?;
+            return Ok(());
         }
 
         // Add both variables together and return them
-        response.end_with((first + second).to_string());
+        response.end_with((first + second).to_string())?;
+
+        Ok(())
     });
 
     server.start(|| {
