@@ -10,7 +10,7 @@ use time::OffsetDateTime;
 
 use crate::Connection;
 
-/// The type of the headers field in a [`Request`](crate::Request)
+/// The type of the headers field in a [`Request`](crate::Request) and a [`Response`](crate::Response)
 pub type Headers = HashMap<String, String>;
 
 pub fn read_line(mut connection: &mut Connection) -> io::Result<String> {
