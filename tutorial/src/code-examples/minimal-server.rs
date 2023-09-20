@@ -8,7 +8,7 @@ fn main() {
     let mut server = Server::new(hostname, port);
 
     server.on("/hello", |_request, response| {
-        response.send("Hello, World!")
+        response.end_with("Hello, World!")
     });
 
     server.start(|| {

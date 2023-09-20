@@ -1,9 +1,19 @@
-# Rust HTTP1.1 Server
+# OakHTTP Server
 
-A HTTP server library that complies with the 1.1 version of the HTTP protocol according to `RFC 9112` and other related documents, written in Rust with **ZERO** dependencies.
+A lightweight HTTP 1.1 server library, written in Rust with **MINIMUM** dependencies.
 
-This was originally meant to be an executable running a HTTP server, but it turns out it is way easier to implement a HTTP library, then use it in one's own executable.
+## Scope
 
-## Changelog
+The scope of this project is to create a stable, lightweight, easy-to-use library in Rust. To achieve this, this project tries to rely on the `std` instead of external crates as much as possible. When external crates are used, they are usually lightweight and actively-maintained.
 
-For more info check the [change log](CHANGELOG.md)
+Apart from that, this library also relies on many Rust-unique features to make the code more readable. For example, `Option`s and `Result`s are used for error-handling, while generics are also widely used
+
+## Usage
+
+We highly recommend checking out the [tutorial](https://oakchris1955.github.io/rust-http-server/tutorial/)
+
+The most recent docs can be found here: <https://docs.rs/oak-http-server>
+
+## Additional resources
+
+- [Changelog](CHANGELOG.md)

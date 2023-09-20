@@ -6,7 +6,7 @@ fn main() {
 
     let mut server = Server::new(hostname, port);
     server.on("/test", |request, response| {
-        response.send(format!(
+        response.end_with(format!(
             "Your current query options are:\n{}",
             request
                 .target
@@ -14,7 +14,9 @@ fn main() {
                 .iter()
                 .map(|(name, value)| format!("{}: {}\n", name, value))
                 .collect::<String>()
-        ))
+        ))?;
+
+        Ok(())
     });
 
     server.on_get("/add", |request, mut response| {
@@ -26,13 +28,6 @@ fn main() {
 
         // Create a slice and a function to correctly parse query arguments to the variables
         let variables_slice = (&["first", "second"], &mut [&mut first, &mut second]);
-
-        fn convert_to_usize(variable: &mut Option<usize>, num_string: String) {
-            match num_string.parse::<usize>() {
-                Ok(number) => *variable = Some(number),
-                _ => (),
-            }
-        }
 
         // For each query we are looking for, check if it exists and attempt to parse it into a usize
         // In case an error occurs, immediately break the loop and execute fail code
@@ -53,12 +48,14 @@ fn main() {
         // If there was an error parsing or finding the query parameters, respond with a 400 status code and return
         if !success {
             response.status(Status::BadRequest);
-            response.send("Error while parsing query arguments \"first\" and \"second\"");
-            return;
+            response.end_with("Error while parsing query arguments \"first\" and \"second\"")?;
+            return Ok(());
         }
 
         // Add both variables together and return them
-        response.send((first + second).to_string());
+        response.end_with((first + second).to_string())?;
+
+        Ok(())
     });
 
     server.start(|| {

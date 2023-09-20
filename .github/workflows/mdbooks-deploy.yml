@@ -2,6 +2,7 @@ name: GitHub Pages - MdBook Deployment
 
 on:
   push:
+    branches: [ main ]
     paths:
       - 'tutorial/**'
       - '.github/workflows/mdbooks-deploy.yml'

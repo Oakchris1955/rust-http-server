@@ -23,12 +23,12 @@
 //!     let mut server = Server::new(hostname, port);
 //!
 //!     // The following path handler responds to each response to the "/ping" path with "Pong!"
-//!     server.on("/ping", |_request, response| response.send("Pong!"));
+//!     server.on("/ping", |_request, response| response.end_with("Pong!"));
 //!     
 //!     // The following path handler responds only to GET requests on the "\headers" path
 //!     // and returns a list of the headers supplied in the corresponding HTTP request
 //!     server.on_get("/headers", |request, response| {
-//!         response.send(format!(
+//!         response.end_with(format!(
 //!	            "Your browser sent the following headers with the request:\n{}",
 //!	            request
 //!	                .headers
@@ -48,12 +48,16 @@
 //! }
 //! ```
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::io::{self, Write};
 use std::net::{Shutdown, SocketAddr, TcpListener, TcpStream};
 use std::process::exit;
+use std::sync::Arc;
+use std::thread;
+use std::time::{Duration, SystemTime};
 
 mod utils;
+pub use utils::Headers;
 use utils::*;
 
 mod enums;
@@ -64,7 +68,7 @@ pub use structs::*;
 
 pub mod handlers;
 
-const VERSION: &str = "HTTP/1.1";
+const VERSION: Version = Version { major: 1, minor: 1 };
 
 /// A custom HTTP method struct that extends [`Method`].
 ///
@@ -81,10 +85,13 @@ pub enum HandlerMethod {
 }
 
 /// The type of the callback function of a [`Handler`]
-pub type HandlerCallback = dyn Fn(Request, Response);
+pub type HandlerCallback = dyn Fn(Request, Response) -> io::Result<()> + Send + Sync;
 
 /// The type of a request handler
-pub type Handler = (HandlerMethod, Box<HandlerCallback>);
+pub type Handler = (HandlerMethod, Arc<HandlerCallback>);
+
+/// Represents a collection of HTTP cookies
+pub type Cookies = HashMap<String, String>;
 
 /// The "heart" of the module; the server struct
 ///
@@ -102,11 +109,11 @@ impl Server {
     /// Initialize a [`Server`] by passing a hostname and a port number
     pub fn new<S, N>(hostname: S, port: N) -> Self
     where
-        S: Into<String>,
+        S: ToString,
         N: Into<u16>,
     {
         Self {
-            hostname: hostname.into(),
+            hostname: hostname.to_string(),
             port: port.into(),
 
             handlers: HashMap::new(),
@@ -114,7 +121,7 @@ impl Server {
     }
 
     /// Start the server and make it process incoming connections
-    pub fn start(&self, callback: fn()) {
+    pub fn start(self, callback: fn()) {
         // Initiate a TCP Listener at localhost port 2300 (port and IP address are subject to change)
         let listener = TcpListener::bind(format!("{}:{}", self.hostname, self.port))
             .unwrap_or_else(|err| {
@@ -122,13 +129,18 @@ impl Server {
                 exit(1);
             });
 
+        // Arc is basically a pointer that can be shared safely between different threads through cloning
+        let shared_self = Arc::new(self);
+
         callback();
 
-        // For each incoming connection request, accept connection and pass control of connection to "handle_client" function
+        // For each incoming connection request, accept connection and pass control of connection to "handle_connection" function
         for stream in listener.incoming() {
             match stream {
                 Ok(stream) => {
-                    self.handle_connection(stream);
+                    // Clone the Arc and move it to the new thread
+                    let self_clone = shared_self.clone();
+                    thread::spawn(move || self_clone.handle_connection(stream));
                 }
                 Err(e) => {
                     eprintln!("Failed to establish a new connection. Error message: {}", e);
@@ -140,56 +152,72 @@ impl Server {
     /// Append a function handler that will be called on any request in a specific path
     pub fn on<S, H>(&mut self, path: S, handler: H)
     where
-        S: Into<String>,
-        H: Fn(Request, Response) + 'static,
+        S: ToString,
+        H: Fn(Request, Response) -> io::Result<()> + Send + Sync + 'static,
     {
-        self.append_handler(path.into(), HandlerMethod::Any, handler);
+        self.append_handler(path.to_string(), HandlerMethod::Any, handler);
     }
 
     /// Same as the [`on()`](`Server::on()`) function, but processes only GET requests
     pub fn on_get<S, H>(&mut self, path: S, handler: H)
     where
-        S: Into<String>,
-        H: Fn(Request, Response) + 'static,
+        S: ToString,
+        H: Fn(Request, Response) -> io::Result<()> + Send + Sync + 'static,
     {
-        self.append_handler(path.into(), HandlerMethod::Specific(Method::GET), handler);
+        self.append_handler(
+            path.to_string(),
+            HandlerMethod::Specific(Method::GET),
+            handler,
+        );
     }
 
     /// Same as the [`on()`](`Server::on()`) function, but processes only HEAD requests
     pub fn on_head<S, H>(&mut self, path: S, handler: H)
     where
-        S: Into<String>,
-        H: Fn(Request, Response) + 'static,
+        S: ToString,
+        H: Fn(Request, Response) -> io::Result<()> + Send + Sync + 'static,
     {
-        self.append_handler(path.into(), HandlerMethod::Specific(Method::HEAD), handler);
+        self.append_handler(
+            path.to_string(),
+            HandlerMethod::Specific(Method::HEAD),
+            handler,
+        );
     }
 
     /// Same as the [`on()`](`Server::on()`) function, but processes only POST requests
     pub fn on_post<S, H>(&mut self, path: S, handler: H)
     where
-        S: Into<String>,
-        H: Fn(Request, Response) + 'static,
+        S: ToString,
+        H: Fn(Request, Response) -> io::Result<()> + Send + Sync + 'static,
     {
-        self.append_handler(path.into(), HandlerMethod::Specific(Method::POST), handler);
+        self.append_handler(
+            path.to_string(),
+            HandlerMethod::Specific(Method::POST),
+            handler,
+        );
     }
 
     /// Same as the [`on()`](`Server::on()`) function, but processes only PUT requests
     pub fn on_put<S, H>(&mut self, path: S, handler: H)
     where
-        S: Into<String>,
-        H: Fn(Request, Response) + 'static,
+        S: ToString,
+        H: Fn(Request, Response) -> io::Result<()> + Send + Sync + 'static,
     {
-        self.append_handler(path.into(), HandlerMethod::Specific(Method::PUT), handler);
+        self.append_handler(
+            path.to_string(),
+            HandlerMethod::Specific(Method::PUT),
+            handler,
+        );
     }
 
     /// Same as the [`on()`](`Server::on()`) function, but processes only DELETE requests
     pub fn on_delete<S, H>(&mut self, path: S, handler: H)
     where
-        S: Into<String>,
-        H: Fn(Request, Response) + 'static,
+        S: ToString,
+        H: Fn(Request, Response) -> io::Result<()> + Send + Sync + 'static,
     {
         self.append_handler(
-            path.into(),
+            path.to_string(),
             HandlerMethod::Specific(Method::DELETE),
             handler,
         );
@@ -198,73 +226,88 @@ impl Server {
     /// Append a directory handler that will be called on any request in a specific path
     pub fn on_directory<S, H>(&mut self, path: S, handler: H)
     where
-        S: Into<String>,
-        H: Fn(Request, Response) + 'static,
+        S: ToString,
+        H: Fn(Request, Response) -> io::Result<()> + Send + Sync + 'static,
     {
-        self.append_handler(path.into(), HandlerMethod::Directory, handler);
+        self.append_handler(path.to_string(), HandlerMethod::Directory, handler);
     }
 
     fn append_handler<H>(&mut self, path: String, method: HandlerMethod, handler: H)
     where
-        H: Fn(Request, Response) + 'static,
+        H: Fn(Request, Response) -> io::Result<()> + Send + Sync + 'static,
     {
         match self.handlers.get_mut(&path) {
             Some(handlers) => {
-                handlers.push((method, Box::new(handler)));
+                handlers.push((method, Arc::new(handler)));
             }
             None => {
                 self.handlers
-                    .insert(path, vec![(method, Box::new(handler))]);
+                    .insert(path, vec![(method, Arc::new(handler))]);
             }
         };
     }
 
-    fn handle_connection(&self, stream: TcpStream) {
+    fn handle_connection(&self, stream: TcpStream) -> io::Result<()> {
         let mut connection = Connection::new(stream);
 
-        let mut connection_open = true;
-
-        'connection_loop: while connection_open {
+        'connection_loop: while !connection.close {
             let mut request = match Request::new(&mut connection) {
-                Some(value) => value,
-                None => {
-                    eprintln!("Couldn't create new request for connection. Dropping connection...");
+                Ok(value) => value,
+                Err(err) => {
+                    eprintln!("Couldn't create new request for connection. Reason: {}\nDropping connection...", err);
                     break 'connection_loop;
                 }
             };
 
-            // Create a HTTP response beforehand that will be used in case an error occurs
-            let mut err_response = Response::new(&mut connection);
+            // Update connection fields
+            connection.inactive_since = SystemTime::now();
+            connection.requests_received += 1;
+
+            // Check whether the max amount of requests this connection can process has been reached
+            if connection.requests_received > connection.max_requests {
+                // We just straight up close the connection. Chek this: https://stackoverflow.com/a/46365730/
+                break 'connection_loop;
+            }
 
             // Before responding, check if the HTTP version of the request is supported (HTTP/1.1)
-            if request.version != Version::new(VERSION).unwrap() {
+            'version_check: {
+                // If the major revision is different, send 505 HTTP Version Not Supported
+                if request.version.major != VERSION.major {
+                    Response::quick(&mut connection, Status::HttpVersionNotSupported)?;
+                // If not, check the minor revision
+                } else {
+                    // If it is greater than the supported one, send 400 Bad Request
+                    if request.version.minor > VERSION.minor {
+                        Response::quick(&mut connection, Status::BadRequest)?;
+                    // If it is less, send 426 Upgrade Required
+                    } else if request.version.minor < VERSION.minor {
+                        Response::quick(&mut connection, Status::UpgradeRequired)?;
+                    // Otherwise, break from this code block
+                    } else {
+                        break 'version_check;
+                    }
+                }
+
+                // Lastly, if the code is still running, print an error message and break the connection loop
                 eprintln!(
                     "Expected HTTP version {}, found {}. Dropping connection...",
                     VERSION, request.version
                 );
-                err_response.status(Status::new(400).unwrap());
-                err_response.end();
                 break 'connection_loop;
             }
 
             // Then check if a `Host` was sent, else respond with a 400 status code
-            if request.version != Version::new(VERSION).unwrap() {
+            if !request.headers.contains_key("host") {
                 eprintln!("Expected 'Host' header, found nothing. Dropping connection...");
-                err_response.status(Status::new(400).unwrap());
-                err_response.end();
+                Response::quick(&mut connection, Status::BadRequest)?;
                 break 'connection_loop;
             }
 
-            // Process headers and print them in while doing so
-            for (name, value) in request.headers.iter() {
-                match name.as_str() {
-                    "Connection" => match value.as_str() {
-                        "close" => connection_open = false,
-                        _ => (),
-                    },
-                    _ => (),
-                }
-            }
+            // The handle_header function returns a Status if an Error occurs, which is then sent to client
+            if let Err(status) = self.handle_headers(&mut connection, &request.headers) {
+                Response::quick(&mut connection, status)?;
+                break 'connection_loop;
+            };
 
             // If everything is alright, check if an appropriate handler exists for this request
             if let Some(handlers) = self.handlers.get(&request.target.full_url()) {
@@ -272,12 +315,12 @@ impl Server {
                     match &handler.0 {
                         HandlerMethod::Specific(method) => {
                             if request.method == *method {
-                                (handler.1)(request, Response::new(&mut connection))
+                                (handler.1)(request, Response::new(&mut connection))?;
                             }
                             continue 'connection_loop;
                         }
                         HandlerMethod::Any => {
-                            (handler.1)(request, Response::new(&mut connection));
+                            (handler.1)(request, Response::new(&mut connection))?;
                             continue 'connection_loop;
                         }
                         _ => (),
@@ -308,7 +351,7 @@ impl Server {
                                     .to_string(),
                             );
 
-                            (handler.1)(request, Response::new(&mut connection));
+                            (handler.1)(request, Response::new(&mut connection))?;
                             continue 'connection_loop;
                         }
                     }
@@ -316,12 +359,66 @@ impl Server {
             }
 
             // Otherwise, respond with a HTTP 404 Not Found status
-            err_response.status(Status::new(404).unwrap());
-            err_response.end();
+            Response::quick(&mut connection, Status::NotFound)?;
             break 'connection_loop;
         }
 
-        connection.terminate_connection()
+        connection.terminate_connection();
+
+        Ok(())
+    }
+
+    fn handle_headers(&self, connection: &mut Connection, headers: &Headers) -> Result<(), Status> {
+        // Process headers (.to_lowercase() because headers are case-insensitive)
+        for (name, value) in headers
+            .iter()
+            .map(|(name, value)| (name.to_lowercase(), value.to_lowercase()))
+        {
+            let value = value.as_str();
+            match name.as_str() {
+                "connection" => match value {
+                    "close" => connection.close = true,
+                    // According to Mozilla Web Docs (https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Connection),
+                    // any value other than "close" is treated as "keep-alive" in HTTP/1.1 connections
+                    _ => (),
+                },
+                "keep-alive" => {
+                    // Parse the header value
+                    for parameter in value.split(",") {
+                        if let Some((param_name, param_value)) = parameter.split_once("=") {
+                            if let Ok(param_int_value) = param_value.parse::<usize>() {
+                                // Match the header parameters
+                                // Note: the server will process them only if they are in logical limits
+                                // For example, the server won't allow a timeout of more than the default one (which is 60 seconds)
+                                match param_name {
+                                    "timeout" => {
+                                        if param_int_value <= connection.timeout.as_secs() as usize
+                                        {
+                                            connection.timeout =
+                                                Duration::from_secs(param_int_value as u64)
+                                        }
+                                    }
+                                    "max" => {
+                                        if param_int_value <= 20 {
+                                            connection.max_requests = param_int_value
+                                        }
+                                    }
+                                    _ => (),
+                                }
+
+                                continue;
+                            }
+                        }
+
+                        // Otherwise, if an error occured while parsing, send a HTTP 400 Bad Request response code
+                        return Err(Status::BadRequest);
+                    }
+                }
+                _ => (),
+            }
+        }
+
+        Ok(())
     }
 }
 
@@ -330,6 +427,19 @@ pub struct Connection {
     /// The address of the peer client (if known)
     pub peer_address: io::Result<SocketAddr>,
 
+    /// Whether to close the connection or not
+    close: bool,
+    /// Connection timeout (in seconds)
+    timeout: Duration,
+    /// Max number of requests that can be received before closing the connection
+    max_requests: usize,
+
+    /// How long this connection hasn't received a HTTP request
+    inactive_since: SystemTime,
+    /// The number of requests received in this connection
+    requests_received: usize,
+
+    /// The [`TcpStream`] from which to read and write data
     stream: TcpStream,
 }
 
@@ -347,6 +457,14 @@ impl Connection {
 
         Self {
             peer_address,
+
+            close: false,
+            timeout: Duration::from_secs(10),
+            max_requests: 5,
+
+            inactive_since: SystemTime::now(),
+            requests_received: 0,
+
             stream,
         }
     }
@@ -374,68 +492,140 @@ pub struct Request {
     /// The HTTP version the client supports
     pub version: Version,
 
+    /// The body of the request (if any)
+    pub body: Vec<u8>,
+
     /// A type alias of a Hashmap containing a list of the headers of the [`Request`]
+    /// Please note that in order to comply with RFC 9110, Section 5.1-3 ("Field names are case-insensitive..."),
+    /// the header names are all in lowercase. Their value, however, is left intact
     pub headers: Headers,
+
+    /// A list of the [`Cookies`] the client sent alongside this [`Request`]
+    pub cookies: Cookies,
 }
 
 impl Request {
     /// Create a new [`Request`] from a [`Connection`]
-    pub fn new(parent: &mut Connection) -> Option<Self> {
+    pub fn new(mut parent: &mut Connection) -> io::Result<Self> {
         // Begin by reading the first line
-        let first_line = read_line(&mut parent.stream);
+        let first_line = read_line(&mut parent)?;
         // Then split it by whitespace
-        let mut splitted_first_line = first_line.split_whitespace();
+        let splitted_first_line = first_line.split_whitespace().collect::<Vec<_>>();
 
-        // Create a HTTP response beforehand that will be used in case an error occurs
-        let mut err_response = Response::new(parent);
+        let (method, target, version) = match &splitted_first_line[..] {
+            // Check if the resulting slices aren't three in number (as they should be)
+            &[method, target, version] => {
+                // If not, try parsing the HTTP method, target and version, and terminate the connection if any error occur
+                let Some(method) = Method::new(method) else {
+                    eprintln!("Invalid HTTP method detected. Dropping connection...");
+                    Response::quick(parent, Status::NotImplemented)?;
+                    return Err(io::Error::new(io::ErrorKind::InvalidData, "Invalid HTTP data"));
+                };
+                let target = Target::new(target);
+                // Note: a HTTP version struct will only check if the HTTP version is in the format "HTTP/{num}.{num}" and won't check if the major and minor revisions of the HTTP protocol exist. This check will occur later on our code                let Some(version) = Version::new(version) else {
+                let Some(version) = Version::new(version)else{
+                    eprintln!("Invalid HTTP version detected. Dropping connection...");
+                    Response::quick(parent, Status::BadRequest)?;
+                    return Err(io::Error::new(io::ErrorKind::InvalidData, "Invalid HTTP data"));
+                };
 
-        // Check if the resulting slices aren't three in number (as they should be)
-        if splitted_first_line.clone().count() != 3 {
-            // If yes, print an error message to stderr and immediately terminate connection
-            eprintln!("Invalid HTTP request detected. Dropping connection...");
-            err_response.status(Status::new(400).unwrap());
-            err_response.end();
-            return None;
-        }
-
-        // Else, start obtaining the HTTP method, target and version, terminating the connection in case of errors
-        let Some(method) = Method::new(splitted_first_line.next().unwrap()) else {
-			eprintln!("Invalid HTTP method detected. Dropping connection...");
-			err_response.status(Status::new(501).unwrap());
-			err_response.end();
-			return None;
-		};
-        let target = Target::new(splitted_first_line.next().unwrap());
-        // Note: a HTTP version struct will only check if the HTTP version is in the format "HTTP/{num}.{num}" and won't check if the major and minor revisions of the HTTP protocol exist. This check will occur later on our code
-        let Some(http_version) = Version::new(splitted_first_line.next().unwrap()) else {
-			eprintln!("Invalid HTTP version detected. Dropping connection...");
-			err_response.status(Status::new(400).unwrap());
-			err_response.end();
-			return None;
-		};
+                (method, target, version)
+            }
+            _ => {
+                // If yes, print an error message to stderr and immediately terminate connection
+                eprintln!("Invalid HTTP request detected. Dropping connection...");
+                Response::quick(parent, Status::BadRequest)?;
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "Invalid HTTP data",
+                ));
+            }
+        };
 
         // Create a variable for storing HTTP headers
         let mut headers: Headers = Headers::new();
 
         // Obtain available HTTP headers
         loop {
-            let line = read_line(&mut parent.stream);
+            let line = read_line(&mut parent)?;
 
-            if line == String::from("") {
+            if line == String::new() {
                 break;
             }
 
             if parse_header_line(&mut headers, line).is_none() {
                 eprintln!("Invalid HTTP header syntax detected. Dropping connection...");
-                return None;
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "Invalid HTTP data",
+                ));
             };
         }
 
-        Some(Self {
+        // Parse cookies from Cookie header
+        let mut cookies: Cookies = HashMap::new();
+
+        if let Some(cookies_header) = headers.get("cookie") {
+            for cookie in cookies_header.split("; ") {
+                if let Some((name, value)) = cookie.split_once("=") {
+                    cookies.insert(name.to_string(), value.to_string());
+                }
+            }
+        }
+
+        // Allocate an empty vector for the request body
+        let mut body = Vec::new();
+
+        // Check if the HTTP request has some body
+        // (for example, when the Content-Type header is set to multipart/form-data or application/x-www-form-urlencoded)
+        if let Some(transfer_encoding) = headers.get("transfer-encoding") {
+            match transfer_encoding.as_str() {
+                "chunked" => {
+                    loop {
+                        let length_line = read_line(&mut parent)?;
+                        let (chunk_length, _) =
+                            length_line.split_once(";").ok_or(io::Error::new(
+                                io::ErrorKind::InvalidData,
+                                "Expected ; seperator for chunked data length",
+                            ))?;
+                        let chunk_length =
+                            usize::from_str_radix(chunk_length, 16).map_err(|_| {
+                                io::Error::new(
+                                    io::ErrorKind::InvalidData,
+                                    "Invalid chunk length format",
+                                )
+                            })?;
+
+                        if chunk_length != 0 {
+                            let chunk_body = read_bytes(&mut parent, chunk_length + 2)?;
+                            body.extend_from_slice(&chunk_body[..&chunk_body.len() - 2]);
+                        } else {
+                            // Remove CRLF from stream
+                            read_bytes(&mut parent, 2)?;
+                            break;
+                        }
+                    }
+
+                    // Ignore the trailers
+                    while read_line(&mut parent)?.len() != 0 {}
+                }
+                _ => Response::quick(parent, Status::BadRequest)?,
+            }
+        } else if let Some(content_length) = headers.get("content-length") {
+            if let Ok(content_length) = content_length.parse::<usize>() {
+                body = read_bytes(&mut parent, content_length)?
+            } else {
+                Response::quick(parent, Status::BadRequest)?
+            }
+        }
+
+        Ok(Self {
             method,
             target,
-            version: http_version,
+            version,
+            body,
             headers,
+            cookies,
         })
     }
 }
@@ -448,9 +638,16 @@ pub struct Response<'s> {
     pub status: Status,
     /// The HTTP version of the response
     pub version: Version,
+    // Whether we have already sent the status line or not
+    sent_status: bool,
 
     /// A type alias of a Hashmap containing the headers of the response
     pub headers: Headers,
+    // Whether we have already sent the headers or not
+    sent_headers: bool,
+
+    /// A list of the Cookies to send
+    cookies: HashSet<Cookie>,
 }
 
 impl<'s> Response<'s> {
@@ -458,55 +655,162 @@ impl<'s> Response<'s> {
     pub fn new(parent: &'s mut Connection) -> Self {
         Self {
             parent,
-            status: Status::new(200).unwrap(),
-            version: Version::new(VERSION).unwrap(),
-            headers: Headers::new(),
+            status: Status::OK,
+            version: VERSION,
+            sent_status: false,
+            headers: [
+                // Set some default headers
+                (String::from("Transfer-Encoding"), String::from("chunked")),
+                (String::from("Date"), format_time(SystemTime::now())),
+            ]
+            .map(|(a, b)| (a.to_string(), b.to_string()))
+            .into(),
+            sent_headers: false,
+            cookies: HashSet::new(),
         }
     }
 
-    /// CHange the [`Status`] of the response
-    pub fn status(&mut self, status: Status) {
-        self.status = status;
+    /// Send an empty response with a specified [`Status`]
+    fn quick(connection: &'s mut Connection, status: Status) -> io::Result<()> {
+        let mut response = Self::new(connection);
+        response.status(status);
+        response.end()
     }
 
-    /// Send the response along with a message (consumes the response)
-    pub fn send<S>(self, message: S)
+    /// Change the [`Status`] of the response
+    pub fn status(&mut self, status: Status) {
+        if !self.sent_status {
+            self.status = status;
+        }
+    }
+
+    /// Set a new cookie
+    pub fn set_cookie(&mut self, cookie: Cookie) {
+        // .replace() inserts the provided cookie to the cookies HashSet
+        // and removes any cookie with the same name (in order to prevent cookies with the same name being sent)
+        self.cookies.replace(cookie);
+    }
+
+    /// Set a new header
+    pub fn set_header<S>(&mut self, name: S, value: S)
     where
-        S: Into<String>,
+        S: ToString,
     {
-        let message: String = message.into();
+        self.headers.insert(name.to_string(), value.to_string());
+    }
 
-        // Send a HTTP status line response
-        self.parent
-            .stream
-            .write(format!("{} {} \r\n", self.version, self.status).as_bytes())
-            .unwrap();
+    /// Set multiple new headers
+    pub fn set_headers(&mut self, other_headers: Headers) {
+        other_headers
+            .iter()
+            .for_each(|(name, value)| self.set_header(name, value))
+    }
 
-        // Send a header indicating message length
-        self.parent
-            .stream
-            .write(format!("Content-Length: {}\r\n", message.len()).as_bytes())
-            .unwrap();
+    /// Get a reference to the internal [`Headers`]
+    pub fn get_headers(&self) -> &Headers {
+        &self.headers
+    }
 
-        // Loop through each header and write them to connection stream
-        for (name, value) in &self.headers {
+    // Send a HTTP status line response
+    fn send_status(&mut self) -> io::Result<()> {
+        if !self.sent_status {
             self.parent
                 .stream
-                .write(format!("{}: {}\r\n", name, value).as_bytes())
-                .unwrap();
+                .write(format!("{} {}\r\n", self.version, self.status).as_bytes())?;
+            self.sent_status = true;
         }
 
-        // Send the response to the client (the CRLF before the response is to signal the beginning of message body)
-        // If the message is empty, this will essentialy write "\r\n" to the stream, so it will be like there is a message body of zero length
-        self.parent
-            .stream
-            .write(format!("\r\n{}", message).as_bytes())
-            .unwrap();
+        Ok(())
     }
 
-    /// Send an empty response (consumes it)
-    pub fn end(self) {
-        // Basically send an empty response
-        self.send("");
+    // Send headers
+    fn send_headers(&mut self) -> io::Result<()> {
+        if !self.sent_headers {
+            // Invoke send_status function
+            self.send_status()?;
+
+            // Loop through each header and write them to connection stream
+            for (name, value) in &self.headers {
+                self.parent
+                    .stream
+                    .write(format!("{}: {}\r\n", name, value).as_bytes())?;
+            }
+
+            // Send the cookies
+            for cookie in self.cookies.iter() {
+                self.parent
+                    .stream
+                    .write(format!("Set-Cookie: {}\n", cookie).as_bytes())?;
+            }
+
+            // Send CRLF indicating that no more headers will be received
+            self.parent.stream.write(b"\r\n")?;
+            self.sent_headers = true;
+        }
+
+        Ok(())
+    }
+
+    fn send_chunk(&mut self, chunk_data: Vec<u8>) -> io::Result<()> {
+        // Check if there are any data to actually send
+        // According to RFC 2616, Section 3.6.1, second paragraph, a chunk can't have a length of 0, unless it is the last chunk
+        if !chunk_data.is_empty() {
+            // Invoke send_headers function
+            self.send_headers()?;
+
+            // Send chunk size
+            self.parent
+                .stream
+                .write(format!("{:x}\r\n", chunk_data.len()).as_bytes())?;
+
+            // Send chunk data
+            self.parent.stream.write(&chunk_data)?;
+            self.parent.stream.write(b"\r\n")?;
+        }
+
+        Ok(())
+    }
+
+    fn end_chunked(&mut self) -> io::Result<()> {
+        // Invoke send_headers function
+        self.send_headers()?;
+
+        // Send last-chunk, followed by CRLF
+        self.parent.stream.write(b"0\r\n\r\n")?;
+
+        Ok(())
+    }
+
+    /// Send some data to the connection
+    pub fn send<S>(&mut self, message: S) -> io::Result<()>
+    where
+        S: ToString,
+    {
+        // Turn String to u8 vector
+        let message: Vec<u8> = message.to_string().as_bytes().to_vec();
+
+        // Send message
+        self.send_chunk(message)?;
+
+        Ok(())
+    }
+
+    /// End the response (consumes it)
+    pub fn end(mut self) -> io::Result<()> {
+        // An alias to self.end_chunked()
+        self.end_chunked()?;
+
+        Ok(())
+    }
+
+    /// End the response with some data (calls [`Response.send`](#method.send), then [`Response.end`](#method.end))
+    pub fn end_with<S>(mut self, message: S) -> io::Result<()>
+    where
+        S: ToString,
+    {
+        self.send(message)?;
+        self.end()?;
+
+        Ok(())
     }
 }

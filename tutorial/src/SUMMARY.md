@@ -12,7 +12,7 @@
 - [About the HTTP protocol](./http-protocol.md)
 - [Request handlers](./request-handlers.md)
 - [The Request and Response structs](./request-response-structs.md)
-- [Other important data structures](./generic-data-structures.md)
+- [Important data structures](./generic-data-structures.md)
 
 # Library modules
 
