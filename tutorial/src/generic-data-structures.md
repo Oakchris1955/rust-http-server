@@ -1,10 +1,42 @@
-# Various important data structures
+# Important data structures
 
-{{#title Important data structures}}
+We have talked quite a lot about the `Response` and the `Request` structs, but there are loads of other data structures that the average `OakHTTP` developer would use. Let's take a closer look.
 
-We have talked quite a lot about the `Response` and the `Request` structs, but of course this crates contains more than just these two structs. Let's take a closer look at what else is provided. It should be noted however that not all of the items here might be useful for the average library user; thischapter is meant to act more as a part of the documentation rather than a part of this tutorial book
+Before we begin, it should also be noted that not all the items here will probably be utilized by the average library user; this chapter is meant to act more as a part of the documentation rather than as a part of this tutorial book
 
 ## Structs
+
+### Cookie
+
+This struct is meant to be used by the `set_cookie` method of the `Response` struct
+
+- Fields
+
+  - `name`: The name of the cookie
+  - `value`: The value of the cookie
+  - `domain`: Defines the host to which the cookie will be sent.
+  - `expires`: Indicates when this cookie is gonna expire. If unset, this will be a session cookie
+  - `http_only`: Forbids JavaScript from accessing the cookie, for example, through the `Document.cookie` property.
+  - `path`: Indicates the path that must exist in the requested URL for the browser to send the cookie
+  - `same_site`: Check [`SameSite`](#samesite) definition
+  - `secure`: The cookie is sent by the browser only on HTTPS connections (except when on `localhost`)
+
+- Methods
+
+  - `set_domain`
+  - `set_expires`
+  - `set_http_only`
+  - `set_path`
+  - `set_same_site`
+  - `set_secure`
+
+Note: One could directly assign the struct fields in order to set the `Cookie`'s attributes. The methods above simply allow for method chaining.
+
+For example:
+
+```rust
+{{#rustdoc_include code-examples/cookie.rs:5:21}}
+```
 
 ### `Target`
 
@@ -65,11 +97,25 @@ Extends the `Method` enum. Indicates when a handler should be called
   - `Specific(Method)`: The handler will called when a `Request` with a `Specific` HTTP `Method` is made at the target path (`GET`, `POST`, etc.)
   - `Any`: The handler will be called on any `Request` under the specified path
 
+### `SameSite`
+
+Controls whether or not a cookie is sent with cross-site requests
+
+- Variants:
+
+  - `Strict`: The browser sends the cookie only for same-site requests
+  - `Lax`: The cookie is not sent on cross-site requests, but is sent when a user is navigating to the origin site from an external site.
+
+    This is the default behaviour
+  - `None`: The browser sends the cookie with both cross-site and same-site requests.
+
+    The `secure` attribute must also be set when setting this value
+
 ### `Status`
 
 The HTTP status of a `Response`
 
-- Variants
+- Variants (not all of them are listed here, only the ones most likely to be used)
 
   - `OK`: 200 OK
   - `Created`: 201 Created
@@ -86,6 +132,10 @@ The HTTP status of a `Response`
 
 ## Type Definitions
 
+### `Cookies`
+
+Represents a collection of HTTP cookies. Resolves to `HashMap<String, String>`
+
 ### `Handler`
 
 Represents a `Request` handler
@@ -93,3 +143,7 @@ Represents a `Request` handler
 ### `HandlerCallback`
 
 The type of the function that processes a HTTP `Request` passed into a `Handler`
+
+### `Headers`
+
+Represents a collection of HTTP headers. Resolves to `HashMap<String, String>`
